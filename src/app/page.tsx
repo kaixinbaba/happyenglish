@@ -45,6 +45,12 @@ interface GenerateResult {
   wordMappings: Record<string, string>;
   storyId?: string;
   learnedWords?: string[];
+  // New fields for async image loading
+  storyIdForImages?: string;
+  imagePrompts?: string[];
+  imageCount?: number;
+  ageGroup?: string;
+  wordCountVal?: number;
 }
 
 export default function Home() {
@@ -54,6 +60,7 @@ export default function Home() {
   const [wordCount, setWordCount] = useState('100');
   const [imageCount, setImageCount] = useState('1');
   const [isLoading, setIsLoading] = useState(false);
+  const [isGeneratingImages, setIsGeneratingImages] = useState(false);
   const [result, setResult] = useState<GenerateResult | null>(null);
   const [error, setError] = useState('');
 
@@ -80,8 +87,10 @@ export default function Home() {
 
     setIsLoading(true);
     setError('');
+    setResult(null);
 
     try {
+      // Step 1: Generate story + translation (fast, ~10-15s)
       const response = await fetch('/api/generate', {
         method: 'POST',
         headers: {
@@ -102,10 +111,44 @@ export default function Home() {
 
       const data = await response.json();
       setResult(data);
+      setIsLoading(false);
+
+      // Step 2: Generate images asynchronously (slow, ~10-30s)
+      if (data.imagePrompts && data.imagePrompts.length > 0) {
+        setIsGeneratingImages(true);
+        generateImagesAsync(data);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : '生成失败，请重试');
-    } finally {
       setIsLoading(false);
+    }
+  };
+
+  const generateImagesAsync = async (data: GenerateResult) => {
+    try {
+      const response = await fetch('/api/generate-images', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          storyId: data.storyIdForImages,
+          imagePrompts: data.imagePrompts,
+        }),
+      });
+
+      if (response.ok) {
+        const imageResult = await response.json();
+        if (imageResult.images && imageResult.images.length > 0) {
+          // Update the result with the generated images
+          setResult(prev => prev ? { ...prev, images: imageResult.images } : prev);
+        }
+      }
+    } catch (imageError) {
+      console.error('Image generation failed:', imageError);
+      // Non-critical, story is already shown
+    } finally {
+      setIsGeneratingImages(false);
     }
   };
 
@@ -117,7 +160,7 @@ export default function Home() {
 
   // Show result page if generation is complete
   if (result) {
-    return <ResultPage result={result} onReset={handleReset} />;
+    return <ResultPage result={result} onReset={handleReset} isGeneratingImages={isGeneratingImages} />;
   }
 
   // Show loading screen

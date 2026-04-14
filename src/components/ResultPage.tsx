@@ -17,9 +17,10 @@ interface GenerateResult {
 interface ResultPageProps {
   result: GenerateResult;
   onReset: () => void;
+  isGeneratingImages?: boolean;
 }
 
-export default function ResultPage({ result, onReset }: ResultPageProps) {
+export default function ResultPage({ result, onReset, isGeneratingImages = false }: ResultPageProps) {
   const { story, translation, images, words, wordMappings } = result;
   const contentRef = useRef<HTMLDivElement>(null);
   const [isExporting, setIsExporting] = useState(false);
@@ -284,7 +285,7 @@ export default function ResultPage({ result, onReset }: ResultPageProps) {
           </div>
 
           {/* Images Section */}
-          {images.length > 0 && (
+          {(images.length > 0 || isGeneratingImages) && (
             <div style={{ border: '1px solid #e5e7eb', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', marginBottom: '24px' }}>
               <div style={{ padding: '24px' }}>
                 <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#1f2937', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -292,11 +293,19 @@ export default function ResultPage({ result, onReset }: ResultPageProps) {
                     🎨
                   </span>
                   Story Illustrations
+                  {isGeneratingImages && (
+                    <span style={{ fontSize: '14px', fontWeight: 400, color: '#9333ea', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style={{ animation: 'spin 1s linear infinite' }}>
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeDasharray="31.4 31.4" />
+                      </svg>
+                      正在生成插图...
+                    </span>
+                  )}
                 </h2>
                 <div style={{ 
                   display: 'grid', 
                   gap: '16px',
-                  gridTemplateColumns: images.length === 1 ? '1fr' : 'repeat(2, 1fr)'
+                  gridTemplateColumns: Math.max(images.length, isGeneratingImages ? (result.wordMappings ? Object.keys(result.wordMappings).length : 1) : 0) === 1 ? '1fr' : 'repeat(2, 1fr)'
                 }}>
                   {images.map((imageUrl, index) => (
                     <div
@@ -319,7 +328,32 @@ export default function ResultPage({ result, onReset }: ResultPageProps) {
                       </div>
                     </div>
                   ))}
+                  {/* Loading placeholders while images are being generated */}
+                  {isGeneratingImages && images.length === 0 && Array.from({ length: 1 }).map((_, index) => (
+                    <div
+                      key={`placeholder-${index}`}
+                      style={{ 
+                        position: 'relative', 
+                        aspectRatio: '1', 
+                        borderRadius: '12px', 
+                        overflow: 'hidden', 
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                        background: 'linear-gradient(135deg, #f3e8ff, #dbeafe)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexDirection: 'column',
+                        gap: '12px',
+                      }}
+                    >
+                      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" style={{ color: '#9333ea', animation: 'spin 1.5s linear infinite' }}>
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeDasharray="31.4 31.4" />
+                      </svg>
+                      <span style={{ fontSize: '14px', color: '#6b7280' }}>AI 绘画中...</span>
+                    </div>
+                  ))}
                 </div>
+                <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
               </div>
             </div>
           )}
