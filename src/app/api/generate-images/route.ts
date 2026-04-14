@@ -24,22 +24,21 @@ export async function POST(request: NextRequest) {
 
     const images: string[] = [];
     const failed: number[] = [];
+    const errors: { index: number; error: string }[] = [];
 
     // Generate images sequentially (each is a separate request that needs polling)
     for (let i = 0; i < imagePrompts.length; i++) {
       try {
         const prompt = `Colorful children's book illustration, cartoon style, bright and cheerful colors. ${imagePrompts[i]}`;
         const imageBuffer = await generateImage(prompt);
-
-        if (imageBuffer) {
-          const key = `stories/${storyId}/${i}.webp`;
-          const imageUrl = await uploadImage(key, imageBuffer);
-          images.push(imageUrl);
-        } else {
-          failed.push(i);
-        }
+        const key = `stories/${storyId}/${i}.webp`;
+        const imageUrl = await uploadImage(key, imageBuffer);
+        images.push(imageUrl);
       } catch (imageError) {
-        console.error(`Failed to generate image ${i + 1}:`, imageError);
+        const msg = imageError instanceof Error ? imageError.message : String(imageError);
+        const stack = imageError instanceof Error ? imageError.stack : '';
+        console.error(`Failed to generate image ${i + 1}:`, msg, '\nStack:', stack);
+        errors.push({ index: i, error: msg });
         failed.push(i);
       }
     }
@@ -64,7 +63,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       images,
       failed,
-    } as GenerateImagesResponse);
+      errors,
+    });
   } catch (error) {
     console.error('Generate images error:', error);
     return NextResponse.json(
