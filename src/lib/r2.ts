@@ -51,7 +51,6 @@ export async function uploadImage(key: string, buffer: ArrayBuffer): Promise<str
     method: 'PUT',
     headers: {
       'Content-Type': 'image/webp',
-      'Host': host,
       'x-amz-content-sha256': payloadHash,
       'x-amz-date': datestamp,
       'Authorization': authorizationHeader,
