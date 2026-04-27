@@ -154,7 +154,7 @@ export default function AddErrorQuestionPage() {
       ...prev,
       content: {
         ...prev.content,
-        options: prev.content.options.filter((_, i) => i !== index)
+        options: prev.content.options.filter((_: string, i: number) => i !== index)
       }
     }));
   };
@@ -383,7 +383,7 @@ export default function AddErrorQuestionPage() {
                   </div>
                   <div className="space-y-3">
                     <Label className="text-base font-medium">选项（A/B/C/D/E/F）</Label>
-                    {formData.content.options.map((option, index) => (
+                    {formData.content.options.map((option: string, index: number) => (
                       <div key={index} className="flex gap-2">
                         <Input
                           value={option}

@@ -222,7 +222,7 @@ export default function EditErrorQuestionPage() {
       ...prev,
       content: {
         ...prev.content,
-        options: prev.content.options.filter((_, i) => i !== index)
+        options: prev.content.options.filter((_: string, i: number) => i !== index)
       }
     }));
   };

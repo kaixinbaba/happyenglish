@@ -29,7 +29,7 @@ interface ReviewQuestion {
   errorReason: string;
   masteryLevel: number;
   tags: string[];
-  relatedWords: string[];
+  relatedWords: { word: string; translation?: string }[];
 }
 
 export default function ReviewPage() {
