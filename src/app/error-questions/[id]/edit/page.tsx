@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
@@ -38,9 +38,12 @@ interface FormData {
   relatedWords: string[];
 }
 
-export default function AddErrorQuestionPage() {
+export default function EditErrorQuestionPage() {
   const { user, logout } = useAuth();
   const router = useRouter();
+  const params = useParams();
+  const questionId = params.id as string;
+  const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGeneratingTags, setIsGeneratingTags] = useState(false);
   const [error, setError] = useState('');
@@ -60,6 +63,31 @@ export default function AddErrorQuestionPage() {
     tags: [],
     relatedWords: [],
   });
+
+  // 加载错题详情
+  useEffect(() => {
+    if (!user || !questionId) return;
+
+    const fetchQuestion = async () => {
+      try {
+        const response = await fetch(`/api/error-questions/${questionId}`);
+        if (!response.ok) throw new Error('加载失败');
+        const data = await response.json();
+        // 接口返回的relatedWords是对象数组，转为字符串数组只取单词
+        setFormData({
+          ...data,
+          relatedWords: data.relatedWords?.map((item: any) => item.word) || []
+        });
+      } catch (err) {
+        console.error('Fetch question error:', err);
+        setError('加载错题失败，请返回重试');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchQuestion();
+  }, [user, questionId]);
 
   // 题型切换时重置content
   const handleTypeChange = (type: string) => {
@@ -133,32 +161,6 @@ export default function AddErrorQuestionPage() {
     setFormData(prev => ({ ...prev, relatedWords: prev.relatedWords.filter(w => w !== word) }));
   };
 
-  // 添加选择题选项
-  const handleAddOption = () => {
-    if (formData.type !== 'word-choice' && formData.type !== 'multiple-choice') return;
-    if (formData.content.options.length >= 6) return; // 最多6个选项（A-F）
-    setFormData(prev => ({
-      ...prev,
-      content: {
-        ...prev.content,
-        options: [...prev.content.options, '']
-      }
-    }));
-  };
-
-  // 删除选择题选项
-  const handleRemoveOption = (index: number) => {
-    if (formData.type !== 'word-choice' && formData.type !== 'multiple-choice') return;
-    if (formData.content.options.length <= 4) return; // 最少保留4个选项
-    setFormData(prev => ({
-      ...prev,
-      content: {
-        ...prev.content,
-        options: prev.content.options.filter((_, i) => i !== index)
-      }
-    }));
-  };
-
   // 自动生成标签
   const handleGenerateTags = async () => {
     if (!formData.type || !formData.correctAnswer) {
@@ -188,7 +190,7 @@ export default function AddErrorQuestionPage() {
         // 合并新生成的标签，去重
         setFormData(prev => ({
           ...prev,
-          tags: [...new Set([...prev.tags, ...data.tags])] as string[],
+          tags: [...new Set([...prev.tags, ...data.tags])] as string[]
         }));
       }
     } catch (err) {
@@ -199,6 +201,32 @@ export default function AddErrorQuestionPage() {
     }
   };
 
+  // 添加选择题选项
+  const handleAddOption = () => {
+    if (formData.type !== 'multiple-choice') return;
+    if (formData.content.options.length >= 6) return; // 最多6个选项（A-F）
+    setFormData(prev => ({
+      ...prev,
+      content: {
+        ...prev.content,
+        options: [...prev.content.options, '']
+      }
+    }));
+  };
+
+  // 删除选择题选项
+  const handleRemoveOption = (index: number) => {
+    if (formData.type !== 'multiple-choice') return;
+    if (formData.content.options.length <= 4) return; // 最少保留4个选项
+    setFormData(prev => ({
+      ...prev,
+      content: {
+        ...prev.content,
+        options: prev.content.options.filter((_, i) => i !== index)
+      }
+    }));
+  };
+
   // 提交表单
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -206,21 +234,21 @@ export default function AddErrorQuestionPage() {
     setError('');
 
     try {
-      const response = await fetch('/api/error-questions', {
-        method: 'POST',
+      const response = await fetch(`/api/error-questions/${questionId}`, {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
       });
 
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.error || '提交失败');
+        throw new Error(data.error || '保存失败');
       }
 
       // 提交成功，跳转到错题列表页
       router.push('/error-questions');
     } catch (err) {
-      setError(err instanceof Error ? err.message : '提交失败，请重试');
+      setError(err instanceof Error ? err.message : '保存失败，请重试');
     } finally {
       setIsSubmitting(false);
     }
@@ -253,6 +281,53 @@ export default function AddErrorQuestionPage() {
     );
   }
 
+  // 加载中
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-blue-50 via-white to-purple-50">
+        <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-sm border-b">
+          <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Link href="/error-questions">
+                <Button variant="ghost" size="sm" className="p-2">
+                  <ArrowLeft className="w-5 h-5" />
+                </Button>
+              </Link>
+              <Link href="/" className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                错题本
+              </Link>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                {user.avatar_url ? (
+                  <img
+                    src={user.avatar_url}
+                    alt={user.nickname}
+                    className="w-8 h-8 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center text-white text-sm font-medium">
+                    {user.nickname.charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <span className="text-sm font-medium text-gray-700 hidden sm:inline">{user.nickname}</span>
+              </div>
+              <Button variant="ghost" size="sm" onClick={logout} className="text-gray-500">
+                <LogOut className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+        </header>
+        <div className="max-w-4xl mx-auto p-4 sm:p-8">
+          <div className="text-center py-20">
+            <Loader2 className="w-8 h-8 animate-spin text-blue-500 mx-auto mb-4" />
+            <p className="text-gray-500">加载中...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 via-white to-purple-50">
       {/* Header */}
@@ -271,9 +346,9 @@ export default function AddErrorQuestionPage() {
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
               {user.avatar_url ? (
-                <img 
-                  src={user.avatar_url} 
-                  alt={user.nickname} 
+                <img
+                  src={user.avatar_url}
+                  alt={user.nickname}
                   className="w-8 h-8 rounded-full object-cover"
                 />
               ) : (
@@ -293,7 +368,7 @@ export default function AddErrorQuestionPage() {
       <div className="max-w-4xl mx-auto p-4 sm:p-8">
         {/* Page Title */}
         <div className="flex items-center gap-3 mb-6">
-          <h1 className="text-2xl font-bold text-gray-800">录入错题</h1>
+          <h1 className="text-2xl font-bold text-gray-800">编辑错题</h1>
         </div>
 
         <form onSubmit={handleSubmit}>
@@ -383,7 +458,7 @@ export default function AddErrorQuestionPage() {
                   </div>
                   <div className="space-y-3">
                     <Label className="text-base font-medium">选项（A/B/C/D/E/F）</Label>
-                    {formData.content.options.map((option, index) => (
+                    {formData.content.options.map((option: string, index: number) => (
                       <div key={index} className="flex gap-2">
                         <Input
                           value={option}
@@ -650,7 +725,7 @@ export default function AddErrorQuestionPage() {
               {isSubmitting ? (
                 <>
                   <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                  提交中...
+                  保存中...
                 </>
               ) : (
                 '保存错题'

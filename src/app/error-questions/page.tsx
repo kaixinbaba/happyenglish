@@ -21,12 +21,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Book, LogOut, Plus, MoreHorizontal, Edit, Trash2, PlayCircle, BarChart3, Loader2, AlertTriangle, X } from 'lucide-react';
+import { Book, LogOut, Plus, MoreHorizontal, Edit, Trash2, PlayCircle, BarChart3, Loader2, AlertTriangle, X, History } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
 const questionTypeLabels: Record<string, string> = {
   'spelling': '单词拼写',
-  'word-choice': '词义辨析',
   'multiple-choice': '单项选择',
   'grammar': '语法填空',
   'translation': '翻译/连词成句',
@@ -65,10 +64,11 @@ export default function ErrorQuestionsPage() {
   const [questions, setQuestions] = useState<ErrorQuestion[]>([]);
   const [statistics, setStatistics] = useState<Statistics | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedType, setSelectedType] = useState<string>('');
-  const [selectedTag, setSelectedTag] = useState<string>('');
+  const [selectedType, setSelectedType] = useState<string>('all');
+  const [selectedTag, setSelectedTag] = useState<string>('all');
   const [deleteQuestionId, setDeleteQuestionId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isLoadingStatistics, setIsLoadingStatistics] = useState(false);
 
   // 加载错题列表和统计数据
   const loadData = async () => {
@@ -76,30 +76,31 @@ export default function ErrorQuestionsPage() {
     
     setIsLoading(true);
     try {
-      // 并行加载列表和统计
-      const [listResponse, statsResponse] = await Promise.all([
-        fetch(`/api/error-questions${selectedType ? `?type=${selectedType}` : ''}`),
-        fetch('/api/error-questions/review/statistics'),
-      ]);
-
+      // 先加载错题列表，优先保证页面可交互
+      const listResponse = await fetch(`/api/error-questions${selectedType !== 'all' ? `?type=${selectedType}` : ''}`);
       if (listResponse.ok) {
         const listData = await listResponse.json();
         // 按标签筛选
         let filtered = listData.list || [];
-        if (selectedTag) {
+        if (selectedTag !== 'all') {
           filtered = filtered.filter((q: ErrorQuestion) => q.tags.includes(selectedTag));
         }
         setQuestions(filtered);
       }
+      setIsLoading(false); // 列表加载完直接结束全局loading，不等待统计
 
+      // 异步加载统计数据，不阻塞页面
+      setIsLoadingStatistics(true);
+      const statsResponse = await fetch('/api/error-questions/review/statistics');
       if (statsResponse.ok) {
         const statsData = await statsResponse.json();
         setStatistics(statsData);
       }
     } catch (error) {
       console.error('Load error questions error:', error);
-    } finally {
       setIsLoading(false);
+    } finally {
+      setIsLoadingStatistics(false);
     }
   };
 
@@ -219,6 +220,18 @@ export default function ErrorQuestionsPage() {
           <div className="flex items-center gap-3">
             {user ? (
               <>
+                <Link href="/history">
+                  <Button variant="ghost" size="sm" className="flex items-center gap-2">
+                    <History className="w-4 h-4" />
+                    历史故事
+                  </Button>
+                </Link>
+                <Link href="/error-questions">
+                  <Button variant="ghost" size="sm" className="flex items-center gap-2">
+                    <Book className="w-4 h-4" />
+                    错题本
+                  </Button>
+                </Link>
                 <div className="flex items-center gap-2">
                   {user.avatar_url ? (
                     <img 
@@ -300,7 +313,7 @@ export default function ErrorQuestionsPage() {
                 <SelectValue placeholder="全部题型" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">全部题型</SelectItem>
+                <SelectItem value="all">全部题型</SelectItem>
                 {Object.entries(questionTypeLabels).map(([value, label]) => (
                   <SelectItem key={value} value={value}>
                     {label}
@@ -315,7 +328,7 @@ export default function ErrorQuestionsPage() {
                 <SelectValue placeholder="全部标签" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">全部标签</SelectItem>
+                <SelectItem value="all">全部标签</SelectItem>
                 {statistics?.topTags.map(({ tag }) => (
                   <SelectItem key={tag} value={tag}>
                     {tag}

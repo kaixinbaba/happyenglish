@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/storage/database/db';
 import { errorQuestions, errorQuestionTags, errorQuestionWordRel, storyWords } from '@/storage/database/shared/schema';
-import { eq, and, sql, desc, asc, lt } from 'drizzle-orm';
+import { eq, and, sql, desc, asc, lt, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 
 const ReviewListQuerySchema = z.object({
@@ -29,9 +29,11 @@ const getReviewPriority = (masteryLevel: number, lastErrorAt: string | null, cre
   else reviewIntervalDays = 7; // 7天
 
   // 计算优先级：已经超过复习间隔时间越多，优先级越高
+  // 即使没到复习时间，也会显示，只是优先级较低
   const overdueDays = daysSinceError - reviewIntervalDays;
-  // 优先级 = 逾期天数 * (100 - 掌握度)，掌握度越低，逾期越久，优先级越高
-  return overdueDays * (100 - masteryLevel);
+  // 优先级 = 逾期天数 * (100 - 掌握度) + (100 - masteryLevel)
+  // 掌握度越低，优先级越高，不管是否逾期，都能出现在复习列表
+  return overdueDays * (100 - masteryLevel) + (100 - masteryLevel);
 };
 
 /**
@@ -72,7 +74,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ list: [] });
       }
       
-      whereConditions.push(sql`${errorQuestions.id} IN ${sql.join(questionIdsWithTag, sql.raw(','))}`);
+      whereConditions.push(inArray(errorQuestions.id, questionIdsWithTag));
     }
 
     // 查询所有需要复习的错题
@@ -115,7 +117,7 @@ export async function GET(request: NextRequest) {
       const tagRecords = await db
         .select({ questionId: errorQuestionTags.questionId, tag: errorQuestionTags.tag })
         .from(errorQuestionTags)
-        .where(sql`${errorQuestionTags.questionId} IN ${sql.join(questionIds, sql.raw(','))}`);
+        .where(inArray(errorQuestionTags.questionId, questionIds));
       
       tags = tagRecords.reduce((acc, record) => {
         if (!acc[record.questionId]) acc[record.questionId] = [];
@@ -128,7 +130,7 @@ export async function GET(request: NextRequest) {
         .select({ questionId: errorQuestionWordRel.questionId, word: storyWords.word, translation: storyWords.translation })
         .from(errorQuestionWordRel)
         .leftJoin(storyWords, eq(errorQuestionWordRel.wordId, storyWords.id))
-        .where(sql`${errorQuestionWordRel.questionId} IN ${sql.join(questionIds, sql.raw(','))}`);
+        .where(inArray(errorQuestionWordRel.questionId, questionIds));
       
       relatedWords = wordRecords.reduce((acc, record) => {
         if (!acc[record.questionId]) acc[record.questionId] = [];

@@ -105,7 +105,7 @@ export default function ReviewPage() {
         return (
           <div className="space-y-4">
             <p className="text-lg font-medium">请拼写单词：</p>
-            <p className="text-2xl font-bold text-center py-4">{question.content.word || ''}</p>
+            <p className="text-2xl font-bold text-center py-4">{question.content.hint || '请根据提示拼写对应的单词'}</p>
           </div>
         );
       case 'word-choice':
@@ -465,9 +465,9 @@ export default function ReviewPage() {
                   <div>
                     <div className="text-sm text-gray-500 mb-1">关联单词</div>
                     <div className="flex flex-wrap gap-1.5">
-                      {currentQuestion.relatedWords.map(word => (
-                        <Badge key={word} variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                          {word}
+                      {currentQuestion.relatedWords.map(item => (
+                        <Badge key={item.word} variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                          {item.word}
                         </Badge>
                       ))}
                     </div>

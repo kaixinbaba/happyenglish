@@ -111,7 +111,7 @@ export async function PUT(
     }
 
     // 更新主表字段
-    if (Object.keys(updateData).length > 0 && !('tags' in updateData) && !('relatedWords' in updateData)) {
+    if (Object.keys(updateData).length > 0) {
       const updateFields: Partial<typeof errorQuestions.$inferInsert> = {};
       if (updateData.type) updateFields.type = updateData.type;
       if (updateData.content) updateFields.content = updateData.content;
