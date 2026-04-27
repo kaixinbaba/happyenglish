@@ -10,7 +10,7 @@ function parseTranslation(storyZh: string): { translation: string; wordMappings:
 
   if (storyZh.trim().startsWith('{') || storyZh.includes('"translation"')) {
     try {
-      let jsonStr = storyZh
+      const jsonStr = storyZh
         .replace(/^```json\s*/i, '')
         .replace(/^```\s*/, '')
         .replace(/```\s*$/, '')

@@ -102,7 +102,7 @@ function parseTranslationResponse(rawContent: string): { translation: string; wo
             if (colonIdx !== -1) {
               const quoteStart = jsonStr.indexOf('"', colonIdx + 1);
               if (quoteStart !== -1) {
-                let endIdx = wmKeyIdx;
+                const endIdx = wmKeyIdx;
                 let searchBack = wmKeyIdx - 1;
                 while (searchBack > quoteStart && /[\s,]/.test(jsonStr[searchBack])) searchBack--;
                 if (jsonStr[searchBack] === '"') {
@@ -338,7 +338,7 @@ ${cleanedStory}`
     // Wait for story first
     const storyContent = await storyPromise;
 
-    let story = storyContent
+    const story = storyContent
       .replace(/^#+\s*/gm, '')
       .replace(/\*\*/g, '')
       .replace(/\*/g, '')

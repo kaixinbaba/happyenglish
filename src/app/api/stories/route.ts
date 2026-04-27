@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
 
     // Get images for all stories
     const storyIds = storyList.map(s => s.id);
-    let imageMap: Record<string, typeof storyImages.$inferSelect[]> = {};
+    const imageMap: Record<string, typeof storyImages.$inferSelect[]> = {};
 
     if (storyIds.length > 0) {
       const { inArray } = await import('drizzle-orm');
