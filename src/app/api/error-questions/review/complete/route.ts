@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '参数错误', details: error.issues }, { status: 400 });
     }
 
-    const db = getDb();
+    const db = await getDb();
 
     // 检查错题是否存在且属于当前用户
     const existingQuestions = await db

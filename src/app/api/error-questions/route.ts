@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: '参数错误', details: error.issues }, { status: 400 });
     }
 
-    const db = getDb();
+    const db = await getDb();
     const whereConditions = [eq(errorQuestions.userId, userId)];
 
     // 按题型筛选
@@ -168,7 +168,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '参数错误', details: error.issues }, { status: 400 });
     }
 
-    const db = getDb();
+    const db = await getDb();
 
     // 1. 创建错题主记录
     const insertedQuestions = await db

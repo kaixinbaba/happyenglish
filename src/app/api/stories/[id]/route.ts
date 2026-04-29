@@ -59,7 +59,7 @@ export async function GET(
       return NextResponse.json({ error: '请先登录' }, { status: 401 });
     }
 
-    const db = getDb();
+    const db = await getDb();
 
     // Get story
     const storyResult = await db
@@ -128,7 +128,7 @@ export async function DELETE(
       return NextResponse.json({ error: '请先登录' }, { status: 401 });
     }
 
-    const db = getDb();
+    const db = await getDb();
 
     // Verify the story belongs to the user
     const storyResult = await db

@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
     // Save images to database if we have a valid storyId
     if (images.length > 0) {
       try {
-        const db = getDb();
+        const db = await getDb();
         await db.insert(storyImages).values(
           images.map((url, index) => ({
             storyId,

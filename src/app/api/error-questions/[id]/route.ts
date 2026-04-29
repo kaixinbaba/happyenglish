@@ -23,7 +23,7 @@ export async function GET(
     }
 
     const { id } = await params;
-    const db = getDb();
+    const db = await getDb();
 
     // 查询错题
     const questions = await db
@@ -95,7 +95,7 @@ export async function PUT(
       return NextResponse.json({ error: '参数错误', details: error.issues }, { status: 400 });
     }
 
-    const db = getDb();
+    const db = await getDb();
 
     // 先检查错题是否存在且属于当前用户
     const existingQuestions = await db
@@ -224,7 +224,7 @@ export async function DELETE(
     }
 
     const { id } = await params;
-    const db = getDb();
+    const db = await getDb();
 
     // 检查错题是否存在且属于当前用户
     const existingQuestions = await db

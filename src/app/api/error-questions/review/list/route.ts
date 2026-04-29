@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/storage/database/db';
 import { errorQuestions, errorQuestionTags, errorQuestionWordRel, storyWords } from '@/storage/database/shared/schema';
-import { eq, and, sql, desc, asc, lt, inArray } from 'drizzle-orm';
+import { eq, and, lt, inArray } from 'drizzle-orm';
 import { z } from 'zod';
+
+type RelatedWord = {
+  word: string | null;
+  translation: string | null;
+};
 
 const ReviewListQuerySchema = z.object({
   limit: z.coerce.number().min(1).max(100).default(20), // 一次返回多少道题
@@ -55,7 +60,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: '参数错误', details: error.issues }, { status: 400 });
     }
 
-    const db = getDb();
+    const db = await getDb();
     const whereConditions = [
       eq(errorQuestions.userId, userId),
       lt(errorQuestions.masteryLevel, 90), // 掌握度90分以上的不需要复习
@@ -110,7 +115,7 @@ export async function GET(request: NextRequest) {
     // 补充标签和关联单词
     const questionIds = result.map(q => q.id);
     let tags: Record<string, string[]> = {};
-    let relatedWords: Record<string, string[]> = {};
+    let relatedWords: Record<string, RelatedWord[]> = {};
 
     if (questionIds.length > 0) {
       // 查询标签
@@ -139,7 +144,7 @@ export async function GET(request: NextRequest) {
           translation: record.translation,
         });
         return acc;
-      }, {} as Record<string, any[]>);
+      }, {} as Record<string, RelatedWord[]>);
     }
 
     // 组装返回数据

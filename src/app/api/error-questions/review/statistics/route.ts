@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: '请先登录' }, { status: 401 });
     }
 
-    const db = getDb();
+    const db = await getDb();
 
     // 1. 基础统计：总错题数、已掌握数、待复习数
     const [totalResult] = await db

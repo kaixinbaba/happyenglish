@@ -6,6 +6,7 @@ assets = { directory = ".open-next/assets", binding = "ASSETS" }
 
 [vars]
 NODE_ENV = "production"
+APP_URL = "https://happyenglish.kaixinbaba1002.workers.dev"
 R2_PUBLIC_DOMAIN = "pub-46f834f249cf497c913e7fd87429cdc1.r2.dev"
 LLM_MODEL = "anthropic/claude-sonnet-4"
 
@@ -19,4 +20,3 @@ bucket_name = "happyenglish-images"
 # REPLICATE_API_TOKEN
 # FEISHU_APP_ID
 # FEISHU_APP_SECRET
-# APP_URL

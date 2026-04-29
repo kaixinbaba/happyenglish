@@ -162,7 +162,7 @@ export async function GET(request: NextRequest) {
   }
 
   // Step 4: Create or update user in database
-  const db = getDb();
+  const db = await getDb();
 
   const existing = await db
     .select()

@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: '请先登录', stories: [] }, { status: 401 });
     }
 
-    const db = getDb();
+    const db = await getDb();
 
     // Get stories
     const storyList = await db

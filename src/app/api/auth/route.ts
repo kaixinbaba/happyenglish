@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ user: null });
     }
 
-    const db = getDb();
+    const db = await getDb();
     const result = await db.select().from(users).where(eq(users.id, userId)).limit(1);
 
     if (result.length === 0) {
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
     }
 
     const trimmedNickname = nickname.trim();
-    const db = getDb();
+    const db = await getDb();
 
     // Check if user exists with this nickname
     const existing = await db.select().from(users).where(eq(users.nickname, trimmedNickname)).limit(1);

@@ -253,7 +253,7 @@ export async function POST(request: NextRequest) {
     }
 
     const userId = request.cookies.get('user_id')?.value;
-    const db = getDb();
+    const db = await getDb();
 
     // Check which words user has learned before (if logged in)
     let learnedWords: string[] = [];
