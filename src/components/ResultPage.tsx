@@ -67,9 +67,9 @@ function compressDataUrl(dataUrl: string): Promise<string> {
 
 const PAGE_W = 210;
 const PAGE_H = 297;
-const MARGIN = 15;
+const MARGIN = 10;
 const CONTENT_W = PAGE_W - MARGIN * 2;
-const BOTTOM_LIMIT = PAGE_H - MARGIN - 12; // leave room for footer
+const BOTTOM_LIMIT = PAGE_H - MARGIN;
 const COLOR_BLUE = [37, 99, 235] as const;
 const COLOR_RED = [220, 38, 38] as const;
 const COLOR_GRAY = [55, 65, 81] as const;
@@ -97,36 +97,34 @@ function wrapCanvasText(ctx: CanvasRenderingContext2D, text: string, maxWidth: n
 /** Estimate total content height at scale=1 to determine fit ratio */
 async function computeScale(result: GenerateResult): Promise<number> {
   const { story, translation, images } = result;
-  const AVAILABLE = PAGE_H - MARGIN * 2 - 14;
-  let h = 22; // header (title + word tags)
+  const AVAILABLE = PAGE_H - MARGIN * 2;
+  let h = 0; // no titles, no word tags
 
   // English story: accurate line measurement via temp jsPDF
   const tmp = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   tmp.setFont('helvetica', 'normal');
-  tmp.setFontSize(10);
-  h += 12; // section heading
+  tmp.setFontSize(18);
   for (const para of story.split(/\n\n+/).filter(p => p.trim())) {
-    h += tmp.splitTextToSize(para, CONTENT_W).length * 6 + 2;
+    h += tmp.splitTextToSize(para, CONTENT_W).length * 10 + 4;
   }
-  h += 4;
+  h += 6;
 
   // Images
   if (images.length > 0) {
     const iw = (CONTENT_W - 4) / 2;
-    h += 12 + Math.ceil(images.length / 2) * (iw * 0.75 + 4) + 6;
+    h += Math.ceil(images.length / 2) * (iw * 0.75 + 4) + 6;
   }
 
-  // Chinese translation estimate (~18 chars/line at 6.4mm/line)
-  h += 12;
+  // Chinese translation estimate (~13 chars/line at 11mm/line)
   const seenEst = new Set<string>();
   for (const para of translation.split(/\n+/).filter(p => p.trim())) {
     const key = para.trim().slice(0, 50);
     if (seenEst.has(key)) continue;
     seenEst.add(key);
-    h += Math.max(1, Math.ceil(para.length / 18)) * 6.4 + 3.2;
+    h += Math.max(1, Math.ceil(para.length / 13)) * 11 + 5;
   }
 
-  return h > AVAILABLE ? Math.max(0.55, AVAILABLE / h) : 1.0;
+  return h > AVAILABLE ? Math.max(0.65, AVAILABLE / h) : 1.0;
 }
 
 async function buildPDF(result: GenerateResult): Promise<jsPDF> {
@@ -147,54 +145,9 @@ async function buildPDF(result: GenerateResult): Promise<jsPDF> {
     if (cursorY + needed > BOTTOM_LIMIT) addNewPage();
   };
 
-  const hGap = Math.max(8, 12 * s);
-  const drawHeading = (title: string) => {
-    ensureSpace(hGap + 4);
-    pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(Math.max(9, 12 * s));
-    pdf.setTextColor(...COLOR_BLUE);
-    pdf.text(title, MARGIN, cursorY + Math.max(4, 5 * s));
-    pdf.setDrawColor(220, 230, 250);
-    pdf.setLineWidth(0.5);
-    const lineY = cursorY + Math.max(5, 7 * s);
-    pdf.line(MARGIN, lineY, PAGE_W - MARGIN, lineY);
-    cursorY += hGap;
-    pdf.setTextColor(0, 0, 0);
-  };
-
-  // ====== Title row ======
-  pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(Math.max(12, 18 * s));
-  pdf.setTextColor(...COLOR_BLUE);
-  pdf.text('Word Story', MARGIN, cursorY + 5);
-  pdf.setFontSize(9);
-  pdf.setTextColor(...COLOR_LIGHT_GRAY);
-  const dateStr = new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' });
-  pdf.text(dateStr, PAGE_W - MARGIN, cursorY + 4, { align: 'right' });
-  cursorY += 12;
-
-  // ====== Word tags ======
-  pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(10);
-  pdf.setTextColor(...COLOR_GRAY);
-  pdf.text('Target Words:', MARGIN, cursorY);
-  let currentX = MARGIN + pdf.getTextWidth('Target Words:  ');
-  pdf.setFontSize(9);
-  for (const word of words) {
-    const tw = pdf.getTextWidth(word) + 6;
-    if (currentX + tw > PAGE_W - MARGIN) { currentX = MARGIN; cursorY += 7; ensureSpace(10); }
-    pdf.setFillColor(59, 130, 246);
-    pdf.roundedRect(currentX, cursorY - 3.5, tw, 5, 1, 1, 'F');
-    pdf.setTextColor(255, 255, 255);
-    pdf.text(word, currentX + 3, cursorY + 0.2);
-    currentX += tw + 2;
-  }
-  cursorY += 10;
-
-  // ====== SECTION 1: English Story ======
-  drawHeading('English Story');
-  const enFontSize = Math.max(7, 10 * s);
-  const enLineHeight = Math.max(4.5, 6 * s);
+  // ====== English Story (no title) ======
+  const enFontSize = Math.max(12, 18 * s);
+  const enLineHeight = Math.max(7, 10 * s);
   pdf.setFontSize(enFontSize);
   const lowerTargetWords = words.map(w => w.toLowerCase());
   const escapedWords = words.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
@@ -237,11 +190,10 @@ async function buildPDF(result: GenerateResult): Promise<jsPDF> {
     }
     cursorY += enLineHeight + Math.max(1, 2 * s);
   }
-  cursorY += Math.max(2, 4 * s);
+  cursorY += Math.max(3, 5 * s);
 
-  // ====== SECTION 2: Story Illustrations ======
+  // ====== Story Illustrations (no title) ======
   if (images.length > 0) {
-    drawHeading('Story Illustrations');
     const compressedImages: string[] = [];
     for (const url of images) {
       try { compressedImages.push(await fetchAndCompressImage(url)); }
@@ -250,24 +202,23 @@ async function buildPDF(result: GenerateResult): Promise<jsPDF> {
     const imgGap = 4;
     // Scale image dimensions uniformly to maintain aspect ratio
     const baseImgW = (CONTENT_W - imgGap) / 2;
-    const imgWidth = baseImgW * Math.max(s, 0.6);
+    const imgWidth = baseImgW * Math.max(s, 0.7);
     const imgHeight = imgWidth * 0.75;
     for (let i = 0; i < compressedImages.length; i += 2) {
-      ensureSpace(imgHeight + 10);
+      ensureSpace(imgHeight + 8);
       await pdf.addImage(compressedImages[i], 'JPEG', MARGIN, cursorY, imgWidth, imgHeight);
       if (i + 1 < compressedImages.length) {
         await pdf.addImage(compressedImages[i+1], 'JPEG', MARGIN + imgWidth + imgGap, cursorY, imgWidth, imgHeight);
       }
       cursorY += imgHeight + imgGap;
     }
-    cursorY += Math.max(3, 6 * s);
+    cursorY += Math.max(4, 6 * s);
   }
 
-  // ====== SECTION 3: Chinese Translation ======
-  drawHeading('Chinese Translation');
+  // ====== Chinese Translation (no title) ======
   const PX_PER_MM = 5;
   const canvasWidth = CONTENT_W * PX_PER_MM;
-  const cnFontSize = Math.max(12, Math.round(20 * s));
+  const cnFontSize = Math.max(20, Math.round(34 * s));
   const ctxLineHeight = cnFontSize * 1.6;
   const chineseMappings = wordMappings ? Object.values(wordMappings).filter(v => v && v.trim()) : [];
   const escapedCn = chineseMappings.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
@@ -354,14 +305,6 @@ async function buildPDF(result: GenerateResult): Promise<jsPDF> {
     if (remainingPx > 0 && cursorY >= BOTTOM_LIMIT - 5) addNewPage();
   }
 
-  const totalPages = pdf.getNumberOfPages();
-  for (let i = 1; i <= totalPages; i++) {
-    pdf.setPage(i);
-    pdf.setFontSize(8);
-    pdf.setTextColor(...COLOR_LIGHT_GRAY);
-    pdf.text('Generated by AI - For learning purposes only', PAGE_W / 2, PAGE_H - 6, { align: 'center' });
-    pdf.text(`${i} / ${totalPages}`, PAGE_W - MARGIN, PAGE_H - 6, { align: 'right' });
-  }
   return pdf;
 }
 
