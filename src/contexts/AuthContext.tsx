@@ -10,6 +10,15 @@ interface User {
   updated_at: string | null;
 }
 
+// 辅助函数：获取用户显示名称
+export function getUserDisplayName(user: User): string {
+  // 如果是飞书用户（格式 feishu_{open_id}），显示友好名称
+  if (user.nickname.startsWith('feishu_')) {
+    return '飞书用户';
+  }
+  return user.nickname;
+}
+
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;

@@ -164,10 +164,13 @@ export async function GET(request: NextRequest) {
   // Step 4: Create or update user in database
   const db = await getDb();
 
+  // 用 open_id 作为唯一标识存储在 nickname 字段（格式：feishu_{open_id}）
+  const feishuNickname = `feishu_${userInfo.open_id}`;
+
   const existing = await db
     .select()
     .from(users)
-    .where(eq(users.nickname, `feishu_${userInfo.open_id}`))
+    .where(eq(users.nickname, feishuNickname))
     .limit(1);
 
   let user;
@@ -185,11 +188,11 @@ export async function GET(request: NextRequest) {
 
     user = updated[0] || existing[0];
   } else {
-    // Create new user
+    // Create new user - 用 feishu_{open_id} 作为 nickname 确保唯一性
     const created = await db
       .insert(users)
       .values({
-        nickname: userInfo.name || `飞书用户_${userInfo.open_id.slice(0, 6)}`,
+        nickname: feishuNickname,
         avatarUrl: userInfo.avatar_url || userInfo.avatar_thumb,
       })
       .returning();

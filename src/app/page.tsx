@@ -15,7 +15,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, Sparkles, History, LogOut, Book } from 'lucide-react';
 import ResultPage from '@/components/ResultPage';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth, getUserDisplayName } from '@/contexts/AuthContext';
 
 const ageGroups = [
   { value: 'preschool', label: '学龄前 (3-6岁)' },
@@ -222,7 +222,7 @@ export default function Home() {
                       {user.nickname.charAt(0).toUpperCase()}
                     </div>
                   )}
-                  <span className="text-sm font-medium text-gray-700 hidden sm:inline">{user.nickname}</span>
+                  <span className="text-sm font-medium text-gray-700 hidden sm:inline">{getUserDisplayName(user)}</span>
                 </div>
                 <Button variant="ghost" size="sm" onClick={logout} className="text-gray-500">
                   <LogOut className="w-4 h-4" />

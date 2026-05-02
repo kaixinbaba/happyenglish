@@ -22,7 +22,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Book, LogOut, Plus, MoreHorizontal, Edit, Trash2, PlayCircle, BarChart3, Loader2, AlertTriangle, X, History } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth, getUserDisplayName } from '@/contexts/AuthContext';
 
 const questionTypeLabels: Record<string, string> = {
   'spelling': '单词拼写',
@@ -244,7 +244,7 @@ export default function ErrorQuestionsPage() {
                       {user.nickname.charAt(0).toUpperCase()}
                     </div>
                   )}
-                  <span className="text-sm font-medium text-gray-700 hidden sm:inline">{user.nickname}</span>
+                  <span className="text-sm font-medium text-gray-700 hidden sm:inline">{getUserDisplayName(user)}</span>
                 </div>
                 <Button variant="ghost" size="sm" onClick={logout} className="text-gray-500">
                   <LogOut className="w-4 h-4" />
