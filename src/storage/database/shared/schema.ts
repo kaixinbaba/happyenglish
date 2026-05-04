@@ -1,4 +1,4 @@
-import { pgTable, serial, timestamp, varchar, text, integer, index, jsonb } from "drizzle-orm/pg-core"
+import { pgTable, serial, timestamp, varchar, text, integer, index, uniqueIndex, jsonb } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
 
 // System health check table (must be preserved)
@@ -133,15 +133,34 @@ export const errorQuestionTags = pgTable(
 		id: varchar("id", { length: 36 })
 			.primaryKey()
 			.default(sql`gen_random_uuid()`),
-		questionId: varchar("question_id", { length: 36 }).notNull().references(() => errorQuestions.id, { onDelete: 'cascade' }),
 		tag: varchar("tag", { length: 64 }).notNull(), // 知识点标签
 		createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' })
 			.defaultNow()
 			.notNull(),
 	},
 	(table) => [
-		index("error_question_tags_question_id_idx").on(table.questionId),
 		index("error_question_tags_tag_idx").on(table.tag),
+		uniqueIndex("error_question_tags_tag_unique").on(table.tag),
+	]
+);
+
+// Error question tag relation table
+export const errorQuestionTagRel = pgTable(
+	"error_question_tag_rel",
+	{
+		id: varchar("id", { length: 36 })
+			.primaryKey()
+			.default(sql`gen_random_uuid()`),
+		questionId: varchar("question_id", { length: 36 }).notNull().references(() => errorQuestions.id, { onDelete: 'cascade' }),
+		tagId: varchar("tag_id", { length: 36 }).notNull().references(() => errorQuestionTags.id, { onDelete: 'cascade' }),
+		createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' })
+			.defaultNow()
+			.notNull(),
+	},
+	(table) => [
+		index("error_question_tag_rel_question_id_idx").on(table.questionId),
+		index("error_question_tag_rel_tag_id_idx").on(table.tagId),
+		uniqueIndex("error_question_tag_rel_question_tag_unique").on(table.questionId, table.tagId),
 	]
 );
 
@@ -172,4 +191,5 @@ export type StoryImage = typeof storyImages.$inferSelect;
 export type StoryWord = typeof storyWords.$inferSelect;
 export type ErrorQuestion = typeof errorQuestions.$inferSelect;
 export type ErrorQuestionTag = typeof errorQuestionTags.$inferSelect;
+export type ErrorQuestionTagRel = typeof errorQuestionTagRel.$inferSelect;
 export type ErrorQuestionWordRel = typeof errorQuestionWordRel.$inferSelect;

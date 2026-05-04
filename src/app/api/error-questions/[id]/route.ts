@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/storage/database/db';
-import { errorQuestions, errorQuestionTags, errorQuestionWordRel, storyWords } from '@/storage/database/shared/schema';
-import { eq, and, inArray, sql } from 'drizzle-orm';
-import { z } from 'zod';
+import { errorQuestions, errorQuestionTagRel, errorQuestionTags, errorQuestionWordRel, storyWords } from '@/storage/database/shared/schema';
+import { attachTagsToQuestion } from '@/lib/error-question-tags';
+import { eq, and, inArray } from 'drizzle-orm';
 import { CreateQuestionSchema } from '../route';
 
 // 更新错题请求校验，和创建类似但所有字段都是可选
@@ -43,8 +43,9 @@ export async function GET(
     // 查询标签
     const tagRecords = await db
       .select({ tag: errorQuestionTags.tag })
-      .from(errorQuestionTags)
-      .where(eq(errorQuestionTags.questionId, id));
+      .from(errorQuestionTagRel)
+      .innerJoin(errorQuestionTags, eq(errorQuestionTagRel.tagId, errorQuestionTags.id))
+      .where(eq(errorQuestionTagRel.questionId, id));
     const tags = tagRecords.map(t => t.tag);
 
     // 查询关联单词
@@ -131,19 +132,12 @@ export async function PUT(
 
     // 更新标签
     if (updateData.tags !== undefined) {
-      // 先删除原有标签
+      // 先删除原有关联，保留 tag 字典供其他错题复用
       await db
-        .delete(errorQuestionTags)
-        .where(eq(errorQuestionTags.questionId, id));
+        .delete(errorQuestionTagRel)
+        .where(eq(errorQuestionTagRel.questionId, id));
       
-      // 新增新标签
-      if (updateData.tags.length > 0) {
-        const tagValues = updateData.tags.map((tag: string) => ({
-          questionId: id,
-          tag,
-        }));
-        await db.insert(errorQuestionTags).values(tagValues);
-      }
+      await attachTagsToQuestion(id, updateData.tags);
     }
 
     // 更新关联单词

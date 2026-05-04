@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/storage/database/db';
-import { errorQuestions, errorQuestionTags, errorQuestionWordRel, storyWords } from '@/storage/database/shared/schema';
-import { eq, and, inArray, sql, ilike } from 'drizzle-orm';
+import { errorQuestions, errorQuestionTagRel, errorQuestionTags, errorQuestionWordRel, storyWords } from '@/storage/database/shared/schema';
+import { attachTagsToQuestion } from '@/lib/error-question-tags';
+import { eq, and, inArray, sql, or } from 'drizzle-orm';
 import { z } from 'zod';
 
 // 错题类型枚举
@@ -31,6 +32,7 @@ export const CreateQuestionSchema = z.object({
 const ListQuerySchema = z.object({
   type: QuestionTypeSchema.optional(),
   tag: z.string().optional(),
+  search: z.string().optional(),
   masteryLevel: z.coerce.number().min(0).max(100).optional(),
   page: z.coerce.number().min(1).default(1),
   pageSize: z.coerce.number().min(1).max(100).default(20),
@@ -71,6 +73,55 @@ export async function GET(request: NextRequest) {
       whereConditions.push(eq(errorQuestions.masteryLevel, query.masteryLevel));
     }
 
+    // 按标签筛选
+    if (query.tag) {
+      const tagRecords = await db
+        .select({ questionId: errorQuestionTagRel.questionId })
+        .from(errorQuestionTagRel)
+        .innerJoin(errorQuestionTags, eq(errorQuestionTagRel.tagId, errorQuestionTags.id))
+        .where(eq(errorQuestionTags.tag, query.tag));
+      const questionIdsWithTag = tagRecords.map(t => t.questionId);
+
+      if (questionIdsWithTag.length === 0) {
+        return NextResponse.json({
+          list: [],
+          pagination: {
+            page: query.page,
+            pageSize: query.pageSize,
+            total: 0,
+            totalPages: 0,
+          },
+        });
+      }
+
+      whereConditions.push(inArray(errorQuestions.id, questionIdsWithTag));
+    }
+
+    // 关键词搜索：题干内容、答案、错误原因、标签都可匹配
+    const search = query.search?.trim();
+    if (search) {
+      const pattern = `%${search}%`;
+      const matchingTagRecords = await db
+        .select({ questionId: errorQuestionTagRel.questionId })
+        .from(errorQuestionTagRel)
+        .innerJoin(errorQuestionTags, eq(errorQuestionTagRel.tagId, errorQuestionTags.id))
+        .where(sql`${errorQuestionTags.tag} ILIKE ${pattern}`);
+      const questionIdsWithMatchingTag = matchingTagRecords.map(t => t.questionId);
+
+      const searchConditions = [
+        sql`${errorQuestions.content}::text ILIKE ${pattern}`,
+        sql`${errorQuestions.correctAnswer} ILIKE ${pattern}`,
+        sql`${errorQuestions.userAnswer} ILIKE ${pattern}`,
+        sql`${errorQuestions.errorReason} ILIKE ${pattern}`,
+      ];
+
+      if (questionIdsWithMatchingTag.length > 0) {
+        searchConditions.push(inArray(errorQuestions.id, questionIdsWithMatchingTag));
+      }
+
+      whereConditions.push(or(...searchConditions)!);
+    }
+
     // 分页参数
     const offset = (query.page - 1) * query.pageSize;
     const limit = query.pageSize;
@@ -101,9 +152,10 @@ export async function GET(request: NextRequest) {
     if (questionIds.length > 0) {
       // 查询标签
       const tagRecords = await db
-        .select({ questionId: errorQuestionTags.questionId, tag: errorQuestionTags.tag })
-        .from(errorQuestionTags)
-        .where(inArray(errorQuestionTags.questionId, questionIds));
+        .select({ questionId: errorQuestionTagRel.questionId, tag: errorQuestionTags.tag })
+        .from(errorQuestionTagRel)
+        .innerJoin(errorQuestionTags, eq(errorQuestionTagRel.tagId, errorQuestionTags.id))
+        .where(inArray(errorQuestionTagRel.questionId, questionIds));
       
       tags = tagRecords.reduce((acc, record) => {
         if (!acc[record.questionId]) acc[record.questionId] = [];
@@ -191,13 +243,7 @@ export async function POST(request: NextRequest) {
     const questionId = insertedQuestions[0].id;
 
     // 2. 保存知识点标签
-    if (questionData.tags.length > 0) {
-      const tagValues = questionData.tags.map(tag => ({
-        questionId,
-        tag,
-      }));
-      await db.insert(errorQuestionTags).values(tagValues);
-    }
+    await attachTagsToQuestion(questionId, questionData.tags);
 
     // 3. 关联单词，更新单词错误次数和掌握度
     if (questionData.relatedWords.length > 0) {

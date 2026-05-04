@@ -28,9 +28,26 @@ const questionTypes = [
   { value: 'custom', label: '其他/自定义题型' },
 ];
 
+const MIN_CHOICE_OPTIONS = 2;
+const MAX_CHOICE_OPTIONS = 6;
+
+interface QuestionContent {
+  word?: string;
+  hint?: string;
+  wrongSpelling?: string;
+  question?: string;
+  options?: string[];
+  sentence?: string;
+  blankPosition?: number;
+  source?: string;
+  targetLanguage?: string;
+  passage?: string;
+  description?: string;
+}
+
 interface FormData {
   type: string;
-  content: Record<string, any>;
+  content: QuestionContent;
   correctAnswer: string;
   userAnswer: string;
   errorReason: string;
@@ -63,13 +80,13 @@ export default function AddErrorQuestionPage() {
 
   // 题型切换时重置content
   const handleTypeChange = (type: string) => {
-    let newContent: Record<string, any> = {};
+    let newContent: QuestionContent = {};
     switch (type) {
       case 'spelling':
         newContent = { word: '', hint: '', wrongSpelling: '' };
         break;
       case 'multiple-choice':
-        newContent = { question: '', options: ['', '', '', ''] };
+        newContent = { question: '', options: ['', ''] };
         break;
       case 'grammar':
         newContent = { sentence: '', blankPosition: 0 };
@@ -87,8 +104,8 @@ export default function AddErrorQuestionPage() {
       ...prev,
       type,
       content: newContent,
-      correctAnswer: type === 'spelling' ? newContent.word : prev.correctAnswer,
-      userAnswer: type === 'spelling' ? newContent.wrongSpelling : prev.userAnswer
+      correctAnswer: type === 'spelling' ? (newContent.word ?? '') : prev.correctAnswer,
+      userAnswer: type === 'spelling' ? (newContent.wrongSpelling ?? '') : prev.userAnswer
     }));
   };
 
@@ -136,12 +153,12 @@ export default function AddErrorQuestionPage() {
   // 添加选择题选项
   const handleAddOption = () => {
     if (formData.type !== 'word-choice' && formData.type !== 'multiple-choice') return;
-    if (formData.content.options.length >= 6) return; // 最多6个选项（A-F）
+    if ((formData.content.options ?? []).length >= MAX_CHOICE_OPTIONS) return;
     setFormData(prev => ({
       ...prev,
       content: {
         ...prev.content,
-        options: [...prev.content.options, '']
+        options: [...(prev.content.options ?? []), '']
       }
     }));
   };
@@ -149,12 +166,12 @@ export default function AddErrorQuestionPage() {
   // 删除选择题选项
   const handleRemoveOption = (index: number) => {
     if (formData.type !== 'word-choice' && formData.type !== 'multiple-choice') return;
-    if (formData.content.options.length <= 4) return; // 最少保留4个选项
+    if ((formData.content.options ?? []).length <= MIN_CHOICE_OPTIONS) return;
     setFormData(prev => ({
       ...prev,
       content: {
         ...prev.content,
-        options: prev.content.options.filter((_: string, i: number) => i !== index)
+        options: (prev.content.options ?? []).filter((_: string, i: number) => i !== index)
       }
     }));
   };
@@ -206,10 +223,28 @@ export default function AddErrorQuestionPage() {
     setError('');
 
     try {
+      const choiceOptions = (formData.content.options ?? [])
+        .map((option: string) => option.trim())
+        .filter(Boolean);
+
+      const submitData = {
+        ...formData,
+        content: formData.type === 'multiple-choice'
+          ? {
+              ...formData.content,
+              options: choiceOptions,
+            }
+          : formData.content,
+      };
+
+      if (submitData.type === 'multiple-choice' && choiceOptions.length < MIN_CHOICE_OPTIONS) {
+        throw new Error('单项选择题至少需要填写 A、B 两个选项');
+      }
+
       const response = await fetch('/api/error-questions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(submitData),
       });
 
       if (!response.ok) {
@@ -382,20 +417,20 @@ export default function AddErrorQuestionPage() {
                     />
                   </div>
                   <div className="space-y-3">
-                    <Label className="text-base font-medium">选项（A/B/C/D/E/F）</Label>
-                    {formData.content.options.map((option: string, index: number) => (
+                    <Label className="text-base font-medium">选项（A/B 必填，C-F 选填）</Label>
+                    {(formData.content.options ?? []).map((option: string, index: number) => (
                       <div key={index} className="flex gap-2">
                         <Input
                           value={option}
                           onChange={e => {
-                            const newOptions = [...formData.content.options];
+                            const newOptions = [...(formData.content.options ?? [])];
                             newOptions[index] = e.target.value;
                             setFormData(prev => ({ ...prev, content: { ...prev.content, options: newOptions } }));
                           }}
                           placeholder={`选项 ${String.fromCharCode(65 + index)}`}
-                          required
+                          required={index < MIN_CHOICE_OPTIONS}
                         />
-                        {formData.content.options.length > 4 && (
+                        {(formData.content.options ?? []).length > MIN_CHOICE_OPTIONS && (
                           <Button
                             type="button"
                             variant="ghost"
@@ -408,7 +443,7 @@ export default function AddErrorQuestionPage() {
                         )}
                       </div>
                     ))}
-                    {formData.content.options.length < 6 && (
+                    {(formData.content.options ?? []).length < MAX_CHOICE_OPTIONS && (
                       <Button
                         type="button"
                         variant="outline"
@@ -417,7 +452,7 @@ export default function AddErrorQuestionPage() {
                         className="w-full"
                       >
                         <Plus className="w-4 h-4 mr-2" />
-                        添加选项 {String.fromCharCode(65 + formData.content.options.length)}
+                        添加选项 {String.fromCharCode(65 + (formData.content.options ?? []).length)}
                       </Button>
                     )}
                   </div>

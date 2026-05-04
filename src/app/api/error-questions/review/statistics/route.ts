@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/storage/database/db';
-import { errorQuestions, errorQuestionTags, storyWords } from '@/storage/database/shared/schema';
+import { errorQuestions, errorQuestionTagRel, errorQuestionTags, storyWords } from '@/storage/database/shared/schema';
 import { eq, sql, desc, and } from 'drizzle-orm';
 
 /**
@@ -59,8 +59,9 @@ export async function GET(request: NextRequest) {
         tag: errorQuestionTags.tag,
         count: sql<number>`count(*)`,
       })
-      .from(errorQuestionTags)
-      .leftJoin(errorQuestions, eq(errorQuestionTags.questionId, errorQuestions.id))
+      .from(errorQuestionTagRel)
+      .innerJoin(errorQuestionTags, eq(errorQuestionTagRel.tagId, errorQuestionTags.id))
+      .innerJoin(errorQuestions, eq(errorQuestionTagRel.questionId, errorQuestions.id))
       .where(eq(errorQuestions.userId, userId))
       .groupBy(errorQuestionTags.tag)
       .orderBy(desc(sql`count(*)`))

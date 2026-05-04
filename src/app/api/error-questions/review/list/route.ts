@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/storage/database/db';
-import { errorQuestions, errorQuestionTags, errorQuestionWordRel, storyWords } from '@/storage/database/shared/schema';
+import { errorQuestions, errorQuestionTagRel, errorQuestionTags, errorQuestionWordRel, storyWords } from '@/storage/database/shared/schema';
 import { eq, and, lt, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 
@@ -70,8 +70,9 @@ export async function GET(request: NextRequest) {
     let questionIdsWithTag: string[] = [];
     if (query.tag) {
       const tagRecords = await db
-        .select({ questionId: errorQuestionTags.questionId })
-        .from(errorQuestionTags)
+        .select({ questionId: errorQuestionTagRel.questionId })
+        .from(errorQuestionTagRel)
+        .innerJoin(errorQuestionTags, eq(errorQuestionTagRel.tagId, errorQuestionTags.id))
         .where(eq(errorQuestionTags.tag, query.tag));
       questionIdsWithTag = tagRecords.map(t => t.questionId);
       
@@ -120,9 +121,10 @@ export async function GET(request: NextRequest) {
     if (questionIds.length > 0) {
       // 查询标签
       const tagRecords = await db
-        .select({ questionId: errorQuestionTags.questionId, tag: errorQuestionTags.tag })
-        .from(errorQuestionTags)
-        .where(inArray(errorQuestionTags.questionId, questionIds));
+        .select({ questionId: errorQuestionTagRel.questionId, tag: errorQuestionTags.tag })
+        .from(errorQuestionTagRel)
+        .innerJoin(errorQuestionTags, eq(errorQuestionTagRel.tagId, errorQuestionTags.id))
+        .where(inArray(errorQuestionTagRel.questionId, questionIds));
       
       tags = tagRecords.reduce((acc, record) => {
         if (!acc[record.questionId]) acc[record.questionId] = [];

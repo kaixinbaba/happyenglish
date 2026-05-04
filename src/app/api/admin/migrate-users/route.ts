@@ -3,11 +3,8 @@ import { getDb } from '@/storage/database/db';
 import {
   users,
   errorQuestions,
-  errorQuestionTags,
-  errorQuestionWordRel,
   storyWords,
   stories,
-  storyImages
 } from '@/storage/database/shared/schema';
 import { eq, inArray, sql, like, or, and } from 'drizzle-orm';
 

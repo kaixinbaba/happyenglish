@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -21,7 +22,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Book, LogOut, Plus, MoreHorizontal, Edit, Trash2, PlayCircle, BarChart3, Loader2, AlertTriangle, X, History } from 'lucide-react';
+import { Book, LogOut, Plus, MoreHorizontal, Edit, Trash2, PlayCircle, Loader2, AlertTriangle, History, Search } from 'lucide-react';
 import { useAuth, getUserDisplayName } from '@/contexts/AuthContext';
 
 const questionTypeLabels: Record<string, string> = {
@@ -33,10 +34,18 @@ const questionTypeLabels: Record<string, string> = {
   'custom': '自定义题型',
 };
 
+interface QuestionContent {
+  word?: string;
+  question?: string;
+  sentence?: string;
+  source?: string;
+  description?: string;
+}
+
 interface ErrorQuestion {
   id: string;
   type: string;
-  content: Record<string, any>;
+  content: QuestionContent;
   correctAnswer: string;
   userAnswer: string;
   errorReason: string;
@@ -58,6 +67,15 @@ interface Statistics {
   weakestWords: Array<{ word: string; translation: string; masteryLevel: number; errorCount: number }>;
 }
 
+interface PaginationState {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+}
+
+const PAGE_SIZE = 10;
+
 export default function ErrorQuestionsPage() {
   const { user, logout } = useAuth();
   const router = useRouter();
@@ -66,31 +84,46 @@ export default function ErrorQuestionsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedType, setSelectedType] = useState<string>('all');
   const [selectedTag, setSelectedTag] = useState<string>('all');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState<PaginationState>({
+    page: 1,
+    pageSize: PAGE_SIZE,
+    total: 0,
+    totalPages: 0,
+  });
   const [deleteQuestionId, setDeleteQuestionId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [isLoadingStatistics, setIsLoadingStatistics] = useState(false);
 
   // 加载错题列表和统计数据
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     if (!user) return;
     
     setIsLoading(true);
     try {
+      const params = new URLSearchParams({
+        page: String(page),
+        pageSize: String(PAGE_SIZE),
+      });
+      if (selectedType !== 'all') params.set('type', selectedType);
+      if (selectedTag !== 'all') params.set('tag', selectedTag);
+      if (searchTerm.trim()) params.set('search', searchTerm.trim());
+
       // 先加载错题列表，优先保证页面可交互
-      const listResponse = await fetch(`/api/error-questions${selectedType !== 'all' ? `?type=${selectedType}` : ''}`);
+      const listResponse = await fetch(`/api/error-questions?${params.toString()}`);
       if (listResponse.ok) {
         const listData = await listResponse.json();
-        // 按标签筛选
-        let filtered = listData.list || [];
-        if (selectedTag !== 'all') {
-          filtered = filtered.filter((q: ErrorQuestion) => q.tags.includes(selectedTag));
-        }
-        setQuestions(filtered);
+        setQuestions(listData.list || []);
+        setPagination(listData.pagination || {
+          page,
+          pageSize: PAGE_SIZE,
+          total: 0,
+          totalPages: 0,
+        });
       }
       setIsLoading(false); // 列表加载完直接结束全局loading，不等待统计
 
       // 异步加载统计数据，不阻塞页面
-      setIsLoadingStatistics(true);
       const statsResponse = await fetch('/api/error-questions/review/statistics');
       if (statsResponse.ok) {
         const statsData = await statsResponse.json();
@@ -99,14 +132,16 @@ export default function ErrorQuestionsPage() {
     } catch (error) {
       console.error('Load error questions error:', error);
       setIsLoading(false);
-    } finally {
-      setIsLoadingStatistics(false);
     }
-  };
+  }, [page, searchTerm, selectedTag, selectedType, user]);
 
   useEffect(() => {
     loadData();
-  }, [user, selectedType, selectedTag]);
+  }, [loadData]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [selectedType, selectedTag, searchTerm]);
 
   // 获取掌握度对应的颜色
   const getMasteryColor = (level: number) => {
@@ -307,6 +342,15 @@ export default function ErrorQuestionsPage() {
 
         {/* Filter Bar */}
         <div className="flex flex-col sm:flex-row gap-3 mb-6">
+          <div className="relative flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-gray-400" />
+            <Input
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              placeholder="搜索题目、答案、标签"
+              className="h-10 pl-9 bg-white/80"
+            />
+          </div>
           <div className="w-full sm:w-48">
             <Select value={selectedType} onValueChange={setSelectedType}>
               <SelectTrigger>
@@ -364,80 +408,108 @@ export default function ErrorQuestionsPage() {
         {/* Questions List */}
         {!isLoading && questions.length > 0 && (
           <div className="space-y-4">
-            {questions.map((question) => (
-              <Card key={question.id} className="hover:shadow-lg transition-shadow border-0 bg-white/80">
-                <CardContent className="p-4 sm:p-6">
-                  <div className="flex justify-between items-start gap-3">
-                    <div className="flex-1 min-w-0">
-                      {/* Header */}
-                      <div className="flex flex-wrap items-center gap-2 mb-2">
-                        <Badge variant="secondary">{questionTypeLabels[question.type] || question.type}</Badge>
-                        <Badge className={getMasteryColor(question.masteryLevel)} variant="outline">
-                          {getMasteryText(question.masteryLevel)}
-                        </Badge>
-                        <span className="text-xs text-gray-400">{formatDate(question.createdAt)}</span>
+            <div className="text-sm text-gray-500">
+              共 {pagination.total} 道错题，第 {pagination.page} / {Math.max(pagination.totalPages, 1)} 页
+            </div>
+            <div className="space-y-4">
+              {questions.map((question) => (
+                <Card key={question.id} className="hover:shadow-lg transition-shadow border-0 bg-white/80">
+                  <CardContent className="p-4 sm:p-6">
+                    <div className="flex justify-between items-start gap-3">
+                      <div className="flex-1 min-w-0">
+                        {/* Header */}
+                        <div className="flex flex-wrap items-center gap-2 mb-2">
+                          <Badge variant="secondary">{questionTypeLabels[question.type] || question.type}</Badge>
+                          <Badge className={getMasteryColor(question.masteryLevel)} variant="outline">
+                            {getMasteryText(question.masteryLevel)}
+                          </Badge>
+                          <span className="text-xs text-gray-400">{formatDate(question.createdAt)}</span>
+                        </div>
+
+                        {/* Question Preview */}
+                        <p className="text-gray-800 text-base line-clamp-2 mb-3">
+                          {getQuestionPreview(question)}
+                        </p>
+
+                        {/* Tags */}
+                        {question.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 mb-3">
+                            {question.tags.map(tag => (
+                              <Badge key={tag} variant="secondary" className="text-xs px-2 py-0">
+                                {tag}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Related Words */}
+                        {question.relatedWords.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5">
+                            {question.relatedWords.map(word => (
+                              <Badge key={word} variant="outline" className="text-xs px-2 py-0 bg-blue-50 text-blue-700 border-blue-100">
+                                {word}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
                       </div>
 
-                      {/* Question Preview */}
-                      <p className="text-gray-800 text-base line-clamp-2 mb-3">
-                        {getQuestionPreview(question)}
-                      </p>
-
-                      {/* Tags */}
-                      {question.tags.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5 mb-3">
-                          {question.tags.map(tag => (
-                            <Badge key={tag} variant="secondary" className="text-xs px-2 py-0">
-                              {tag}
-                            </Badge>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* Related Words */}
-                      {question.relatedWords.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5">
-                          {question.relatedWords.map(word => (
-                            <Badge key={word} variant="outline" className="text-xs px-2 py-0 bg-blue-50 text-blue-700 border-blue-100">
-                              {word}
-                            </Badge>
-                          ))}
-                        </div>
-                      )}
+                      {/* Actions Menu */}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm" className="p-2 h-auto">
+                            <MoreHorizontal className="w-5 h-5 text-gray-500" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuLabel>操作</DropdownMenuLabel>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => router.push(`/error-questions/${question.id}/edit`)}>
+                            <Edit className="w-4 h-4 mr-2" />
+                            编辑
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => router.push('/error-questions/review')}>
+                            <PlayCircle className="w-4 h-4 mr-2" />
+                            加入复习
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className="text-red-600"
+                            onClick={() => setDeleteQuestionId(question.id)}
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            删除
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
-
-                    {/* Actions Menu */}
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm" className="p-2 h-auto">
-                          <MoreHorizontal className="w-5 h-5 text-gray-500" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>操作</DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => router.push(`/error-questions/${question.id}/edit`)}>
-                          <Edit className="w-4 h-4 mr-2" />
-                          编辑
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => router.push('/error-questions/review')}>
-                          <PlayCircle className="w-4 h-4 mr-2" />
-                          加入复习
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          className="text-red-600"
-                          onClick={() => setDeleteQuestionId(question.id)}
-                        >
-                          <Trash2 className="w-4 h-4 mr-2" />
-                          删除
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+            {pagination.totalPages > 1 && (
+              <div className="flex items-center justify-between gap-3 pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={page <= 1}
+                  onClick={() => setPage(prev => Math.max(prev - 1, 1))}
+                >
+                  上一页
+                </Button>
+                <div className="text-sm text-gray-500">
+                  {page} / {pagination.totalPages}
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={page >= pagination.totalPages}
+                  onClick={() => setPage(prev => Math.min(prev + 1, pagination.totalPages))}
+                >
+                  下一页
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </div>
