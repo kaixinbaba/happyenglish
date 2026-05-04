@@ -112,6 +112,9 @@ export const errorQuestions = pgTable(
 		userAnswer: text("user_answer"),
 		errorReason: text("error_reason"), // 错误原因
 		masteryLevel: integer("mastery_level").notNull().default(0), // 本题掌握度0-100
+		lastReviewedAt: timestamp("last_reviewed_at", { withTimezone: true, mode: 'string' }),
+		reviewCount: integer("review_count").notNull().default(0),
+		lastResult: varchar("last_result", { length: 16 }), // 'correct' | 'wrong'
 		createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' })
 			.defaultNow()
 			.notNull(),
@@ -123,6 +126,8 @@ export const errorQuestions = pgTable(
 		index("error_questions_user_id_idx").on(table.userId),
 		index("error_questions_type_idx").on(table.type),
 		index("error_questions_mastery_level_idx").on(table.masteryLevel),
+		index("error_questions_review_count_idx").on(table.reviewCount),
+		index("error_questions_last_result_idx").on(table.lastResult),
 	]
 );
 
@@ -184,6 +189,63 @@ export const errorQuestionWordRel = pgTable(
 	]
 );
 
+// Review sessions table
+export const reviewSessions = pgTable(
+	"review_sessions",
+	{
+		id: varchar("id", { length: 36 })
+			.primaryKey()
+			.default(sql`gen_random_uuid()`),
+		userId: varchar("user_id", { length: 36 }).notNull().references(() => users.id, { onDelete: 'cascade' }),
+		totalQuestions: integer("total_questions").notNull(), // 总题数
+		completedQuestions: integer("completed_questions").notNull().default(0), // 已完成题数
+		correctCount: integer("correct_count").notNull().default(0), // 答对题数
+		wrongCount: integer("wrong_count").notNull().default(0), // 答错题数
+		status: varchar("status", { length: 16 }).notNull().default('in_progress'), // in_progress, completed, cancelled
+		startedAt: timestamp("started_at", { withTimezone: true, mode: 'string' })
+			.defaultNow()
+			.notNull(),
+		completedAt: timestamp("completed_at", { withTimezone: true, mode: 'string' }),
+		createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' })
+			.defaultNow()
+			.notNull(),
+		updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' })
+			.defaultNow()
+			.notNull(),
+	},
+	(table) => [
+		index("review_sessions_user_id_idx").on(table.userId),
+		index("review_sessions_status_idx").on(table.status),
+		index("review_sessions_started_at_idx").on(table.startedAt),
+	]
+);
+
+// Review records table
+export const reviewRecords = pgTable(
+	"review_records",
+	{
+		id: varchar("id", { length: 36 })
+			.primaryKey()
+			.default(sql`gen_random_uuid()`),
+		sessionId: varchar("session_id", { length: 36 }).notNull().references(() => reviewSessions.id, { onDelete: 'cascade' }),
+		questionId: varchar("question_id", { length: 36 }).notNull().references(() => errorQuestions.id, { onDelete: 'cascade' }),
+		userId: varchar("user_id", { length: 36 }).notNull().references(() => users.id, { onDelete: 'cascade' }),
+		result: varchar("result", { length: 16 }).notNull(), // correct, wrong
+		previousMasteryLevel: integer("previous_mastery_level").notNull(), // 复习前掌握度
+		newMasteryLevel: integer("new_mastery_level").notNull(), // 复习后掌握度
+		orderIndex: integer("order_index").notNull().default(0), // 在复习会话中的顺序
+		createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' })
+			.defaultNow()
+			.notNull(),
+	},
+	(table) => [
+		index("review_records_session_id_idx").on(table.sessionId),
+		index("review_records_question_id_idx").on(table.questionId),
+		index("review_records_user_id_idx").on(table.userId),
+		index("review_records_created_at_idx").on(table.createdAt),
+	]
+);
+
 // Types
 export type User = typeof users.$inferSelect;
 export type Story = typeof stories.$inferSelect;
@@ -193,3 +255,5 @@ export type ErrorQuestion = typeof errorQuestions.$inferSelect;
 export type ErrorQuestionTag = typeof errorQuestionTags.$inferSelect;
 export type ErrorQuestionTagRel = typeof errorQuestionTagRel.$inferSelect;
 export type ErrorQuestionWordRel = typeof errorQuestionWordRel.$inferSelect;
+export type ReviewSession = typeof reviewSessions.$inferSelect;
+export type ReviewRecord = typeof reviewRecords.$inferSelect;

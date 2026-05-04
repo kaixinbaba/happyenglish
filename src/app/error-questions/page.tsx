@@ -85,6 +85,7 @@ export default function ErrorQuestionsPage() {
   const [selectedType, setSelectedType] = useState<string>('all');
   const [selectedTag, setSelectedTag] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [searchQuery, setSearchQuery] = useState(''); // 用于实际搜索的查询词
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState<PaginationState>({
     page: 1,
@@ -98,7 +99,7 @@ export default function ErrorQuestionsPage() {
   // 加载错题列表和统计数据
   const loadData = useCallback(async () => {
     if (!user) return;
-    
+
     setIsLoading(true);
     try {
       const params = new URLSearchParams({
@@ -107,7 +108,7 @@ export default function ErrorQuestionsPage() {
       });
       if (selectedType !== 'all') params.set('type', selectedType);
       if (selectedTag !== 'all') params.set('tag', selectedTag);
-      if (searchTerm.trim()) params.set('search', searchTerm.trim());
+      if (searchQuery.trim()) params.set('search', searchQuery.trim());
 
       // 先加载错题列表，优先保证页面可交互
       const listResponse = await fetch(`/api/error-questions?${params.toString()}`);
@@ -133,15 +134,40 @@ export default function ErrorQuestionsPage() {
       console.error('Load error questions error:', error);
       setIsLoading(false);
     }
-  }, [page, searchTerm, selectedTag, selectedType, user]);
+  }, [page, searchQuery, selectedTag, selectedType, user]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
 
   useEffect(() => {
+    // 监听页面可见性变化，用户切换回页面时刷新统计
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        loadData();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [loadData]);
+
+  useEffect(() => {
     setPage(1);
-  }, [selectedType, selectedTag, searchTerm]);
+  }, [selectedType, selectedTag, searchQuery]);
+
+  // 执行搜索
+  const handleSearch = useCallback(() => {
+    setSearchQuery(searchTerm);
+    setPage(1);
+  }, [searchTerm]);
+
+  // 处理回车键搜索
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handleSearch();
+    }
+  }, [handleSearch]);
 
   // 获取掌握度对应的颜色
   const getMasteryColor = (level: number) => {
@@ -261,10 +287,10 @@ export default function ErrorQuestionsPage() {
                     历史故事
                   </Button>
                 </Link>
-                <Link href="/error-questions">
+                <Link href="/error-questions/review/history">
                   <Button variant="ghost" size="sm" className="flex items-center gap-2">
-                    <Book className="w-4 h-4" />
-                    错题本
+                    <History className="w-4 h-4" />
+                    复习历史
                   </Button>
                 </Link>
                 <div className="flex items-center gap-2">
@@ -301,7 +327,7 @@ export default function ErrorQuestionsPage() {
                 录入错题
               </Button>
             </Link>
-            <Link href="/error-questions/review">
+            <Link href="/error-questions/review/start">
               <Button variant="outline" className="border-blue-500 text-blue-500">
                 <PlayCircle className="w-4 h-4 mr-2" />
                 开始复习
@@ -342,17 +368,26 @@ export default function ErrorQuestionsPage() {
 
         {/* Filter Bar */}
         <div className="flex flex-col sm:flex-row gap-3 mb-6">
-          <div className="relative flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-gray-400" />
-            <Input
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-              placeholder="搜索题目、答案、标签"
-              className="h-10 pl-9 bg-white/80"
-            />
+          <div className="flex gap-2 flex-1">
+            <div className="relative flex-1">
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-gray-400" />
+              <Input
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="搜索题目、答案、标签"
+                className="h-10 pl-9 bg-white/80"
+              />
+            </div>
+            <Button
+              onClick={handleSearch}
+              className="bg-gradient-to-r from-blue-500 to-purple-500 h-10 px-4"
+            >
+              搜索
+            </Button>
           </div>
           <div className="w-full sm:w-48">
-            <Select value={selectedType} onValueChange={setSelectedType}>
+            <Select value={selectedType} onValueChange={(val) => { setSelectedType(val); setPage(1); }}>
               <SelectTrigger>
                 <SelectValue placeholder="全部题型" />
               </SelectTrigger>
@@ -367,7 +402,7 @@ export default function ErrorQuestionsPage() {
             </Select>
           </div>
           <div className="w-full sm:w-48">
-            <Select value={selectedTag} onValueChange={setSelectedTag}>
+            <Select value={selectedTag} onValueChange={(val) => { setSelectedTag(val); setPage(1); }}>
               <SelectTrigger>
                 <SelectValue placeholder="全部标签" />
               </SelectTrigger>
