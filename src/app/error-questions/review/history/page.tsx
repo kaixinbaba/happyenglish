@@ -8,6 +8,17 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import {
   ArrowLeft,
   LogOut,
   History,
@@ -15,6 +26,7 @@ import {
   CheckCircle,
   XCircle,
   Loader2,
+  Trash2,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -46,6 +58,7 @@ export default function ReviewHistoryPage() {
   const [pagination, setPagination] = useState<Pagination | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [page, setPage] = useState(1);
+  const [isResetting, setIsResetting] = useState(false);
 
   // 加载复习历史
   const loadHistory = async (currentPage = 1) => {
@@ -74,6 +87,28 @@ export default function ReviewHistoryPage() {
   useEffect(() => {
     loadHistory(page);
   }, [user, page]);
+
+  // 重置所有复习数据
+  const handleReset = async () => {
+    setIsResetting(true);
+    try {
+      const response = await fetch('/api/error-questions/review/reset', {
+        method: 'POST',
+      });
+      if (response.ok) {
+        // 重新加载历史
+        setPage(1);
+        loadHistory(1);
+      } else {
+        alert('重置失败，请重试');
+      }
+    } catch (error) {
+      console.error('Reset error:', error);
+      alert('重置失败，请重试');
+    } finally {
+      setIsResetting(false);
+    }
+  };
 
   // 格式日期
   const formatDate = (dateStr: string) => {
@@ -153,6 +188,40 @@ export default function ReviewHistoryPage() {
           <div className="flex items-center gap-3">
             {user ? (
               <>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      disabled={isResetting}
+                      className="text-white"
+                    >
+                      {isResetting ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="w-4 h-4" />
+                      )}
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>确认重置所有复习数据？</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        此操作将删除所有复习历史记录，并将所有错题的复习状态重置为初始状态。
+                        此操作无法撤销。
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>取消</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={handleReset}
+                        className="bg-red-600 hover:bg-red-700 text-white"
+                      >
+                        {isResetting ? '重置中...' : '确认重置'}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
                 <Button variant="ghost" size="sm" onClick={logout} className="text-gray-500">
                   <LogOut className="w-4 h-4" />
                 </Button>
