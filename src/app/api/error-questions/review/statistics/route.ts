@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
       .from(errorQuestions)
       .where(and(
         eq(errorQuestions.userId, userId),
-        sql`${errorQuestions.masteryLevel} >= 90`
+        sql`${errorQuestions.masteryLevel} >= 60`
       ));
     const masteredCount = masteredResult.count || 0;
 
@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
       .from(errorQuestions)
       .where(and(
         eq(errorQuestions.userId, userId),
-        sql`${errorQuestions.masteryLevel} < 90`
+        sql`${errorQuestions.masteryLevel} < 60`
       ));
     const toReviewCount = toReviewResult.count || 0;
 

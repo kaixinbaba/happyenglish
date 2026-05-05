@@ -1,17 +1,48 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/storage/database/db';
-import { sql } from 'drizzle-orm';
+import { sql, eq } from 'drizzle-orm';
+import { reviewRecords, reviewSessions, errorQuestions } from '@/storage/database/shared/schema';
 
 export async function POST(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
+    const action = searchParams.get('action');
     const dryRun = searchParams.get('dryRun') !== 'false';
 
-    if (request.method !== 'POST') {
-      return NextResponse.json({ error: 'Method not allowed' }, { status: 405 });
+    const userId = request.cookies.get('user_id')?.value;
+    if (!userId) {
+      return NextResponse.json({ error: '请先登录' }, { status: 401 });
     }
 
     const db = await getDb();
+
+    // Reset review data
+    if (action === 'reset') {
+      if (!dryRun) {
+        // Delete review records
+        await db.delete(reviewRecords).where(eq(reviewRecords.userId, userId));
+        // Delete review sessions
+        await db.delete(reviewSessions).where(eq(reviewSessions.userId, userId));
+        // Reset error questions
+        await db.update(errorQuestions)
+          .set({
+            masteryLevel: 30,
+            lastReviewedAt: null,
+            reviewCount: 0,
+            lastResult: null,
+          })
+          .where(eq(errorQuestions.userId, userId));
+      }
+
+      return NextResponse.json({
+        success: true,
+        dryRun,
+        action: 'reset-review',
+        message: 'Review data reset completed'
+      });
+    }
+
+    // Original migration
     const results: { action: string; status: string; message?: string }[] = [];
 
     const migrationStatements = [

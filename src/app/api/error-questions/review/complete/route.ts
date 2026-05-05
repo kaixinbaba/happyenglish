@@ -55,11 +55,11 @@ export async function POST(request: NextRequest) {
 
     // 根据复习结果更新掌握度
     if (reviewData.result === 'correct') {
-      // 做对了，掌握度+15分，最高100分
-      newMasteryLevel = Math.min(currentMasteryLevel + 15, 100);
+      // 做对了，直接掌握！设置为80分
+      newMasteryLevel = 80;
     } else {
-      // 做错了，掌握度-20分，最低0分
-      newMasteryLevel = Math.max(currentMasteryLevel - 20, 0);
+      // 做错了，掌握度-30分，最低0分
+      newMasteryLevel = Math.max(currentMasteryLevel - 30, 0);
     }
 
     // 更新错题的掌握度和更新时间，以及复习追踪信息
@@ -174,7 +174,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       message: '复习结果已提交',
       newMasteryLevel,
-      needReviewAgain: newMasteryLevel < 90, // 掌握度低于90分还需要继续复习
+      needReviewAgain: newMasteryLevel < 60, // 掌握度低于60分还需要继续复习
     });
   } catch (error) {
     console.error('Review complete error:', error);
