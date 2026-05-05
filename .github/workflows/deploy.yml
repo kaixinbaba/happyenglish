@@ -28,7 +28,5 @@ jobs:
       - name: Build and deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: |
-          pnpm run build
-          npx wrangler deploy
+        run: pnpm run deploy
 
