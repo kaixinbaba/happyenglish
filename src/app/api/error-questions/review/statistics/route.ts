@@ -27,6 +27,78 @@ function getDateKey(offsetDays: number) {
   return date.toISOString().split('T')[0];
 }
 
+function formatDateKey(date: Date) {
+  return date.toISOString().split('T')[0];
+}
+
+function addDays(date: Date, days: number) {
+  const next = new Date(date);
+  next.setUTCDate(next.getUTCDate() + days);
+  return next;
+}
+
+function parseDateParam(value: string | null) {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function resolveReviewDetailRange(searchParams: URLSearchParams) {
+  const requestedRange = searchParams.get('range');
+  const explicitStartDate = parseDateParam(searchParams.get('startDate'));
+  const explicitEndDate = parseDateParam(searchParams.get('endDate'));
+  const today = new Date();
+  const todayDate = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+
+  if (explicitStartDate || explicitEndDate || requestedRange === 'custom') {
+    if (!explicitStartDate || !explicitEndDate) {
+      return {
+        error: '自定义时间范围需要同时提供 startDate 和 endDate，格式为 YYYY-MM-DD',
+      };
+    }
+
+    if (explicitStartDate > explicitEndDate) {
+      return {
+        error: 'startDate 不能晚于 endDate',
+      };
+    }
+
+    return {
+      preset: 'custom',
+      startDate: explicitStartDate,
+      endDate: explicitEndDate,
+      endExclusiveDate: addDays(explicitEndDate, 1),
+    };
+  }
+
+  if (requestedRange === 'week') {
+    const startDate = addDays(todayDate, -6);
+    return {
+      preset: 'week',
+      startDate,
+      endDate: todayDate,
+      endExclusiveDate: addDays(todayDate, 1),
+    };
+  }
+
+  const startDate = addDays(todayDate, -29);
+  return {
+    preset: 'month',
+    startDate,
+    endDate: todayDate,
+    endExclusiveDate: addDays(todayDate, 1),
+  };
+}
+
+function eachDateInRange(startDate: Date, endDate: Date) {
+  const dates: string[] = [];
+  for (let date = startDate; date <= endDate; date = addDays(date, 1)) {
+    dates.push(formatDateKey(date));
+  }
+  return dates;
+}
+
 /**
  * GET /api/error-questions/review/statistics
  * 获取错题统计数据
@@ -41,6 +113,10 @@ export async function GET(request: NextRequest) {
     const db = await getDb();
 
     const startedAt = Date.now();
+    const detailRange = resolveReviewDetailRange(request.nextUrl.searchParams);
+    if ('error' in detailRange) {
+      return NextResponse.json({ error: detailRange.error }, { status: 400 });
+    }
 
     const [
       basicResult,
@@ -53,6 +129,9 @@ export async function GET(request: NextRequest) {
       masteryDistributionStats,
       reviewSessionStatsResult,
       recentAccuracyStats,
+      rangeReviewSummaryResult,
+      rangeDailyStats,
+      rangeSessionStats,
     ] = await Promise.all([
       db
         .select({
@@ -200,6 +279,65 @@ export async function GET(request: NextRequest) {
         ))
         .orderBy(sql`coalesce(${reviewSessions.completedAt}, ${reviewSessions.updatedAt}) DESC`)
         .limit(30),
+
+      // 指定时间范围内的复习汇总
+      db
+        .select({
+          totalReviewRecords: sql<number>`count(*)`,
+          totalCorrect: sql<number>`count(*) filter (where ${reviewRecords.result} = 'correct')`,
+          totalWrong: sql<number>`count(*) filter (where ${reviewRecords.result} = 'wrong')`,
+          averageMasteryImprovement: sql<number>`coalesce(avg(${reviewRecords.newMasteryLevel} - ${reviewRecords.previousMasteryLevel}), 0)`,
+        })
+        .from(reviewRecords)
+        .where(and(
+          eq(reviewRecords.userId, userId),
+          sql`${reviewRecords.createdAt} >= ${formatDateKey(detailRange.startDate)}::date`,
+          sql`${reviewRecords.createdAt} < ${formatDateKey(detailRange.endExclusiveDate)}::date`
+        )),
+
+      // 指定时间范围内的每日复习趋势
+      db
+        .select({
+          date: sql<string>`DATE(${reviewRecords.createdAt})`,
+          reviewCount: sql<number>`count(*)`,
+          correctCount: sql<number>`count(*) filter (where ${reviewRecords.result} = 'correct')`,
+          wrongCount: sql<number>`count(*) filter (where ${reviewRecords.result} = 'wrong')`,
+          averageMasteryImprovement: sql<number>`coalesce(avg(${reviewRecords.newMasteryLevel} - ${reviewRecords.previousMasteryLevel}), 0)`,
+        })
+        .from(reviewRecords)
+        .where(and(
+          eq(reviewRecords.userId, userId),
+          sql`${reviewRecords.createdAt} >= ${formatDateKey(detailRange.startDate)}::date`,
+          sql`${reviewRecords.createdAt} < ${formatDateKey(detailRange.endExclusiveDate)}::date`
+        ))
+        .groupBy(sql`DATE(${reviewRecords.createdAt})`)
+        .orderBy(sql`DATE(${reviewRecords.createdAt}) ASC`),
+
+      // 指定时间范围内的复习会话详情
+      db
+        .select({
+          sessionId: reviewSessions.id,
+          date: sql<string>`DATE(${reviewSessions.startedAt})`,
+          status: reviewSessions.status,
+          totalQuestions: reviewSessions.totalQuestions,
+          completedQuestions: reviewSessions.completedQuestions,
+          correctCount: reviewSessions.correctCount,
+          wrongCount: reviewSessions.wrongCount,
+          correctRate: sql<number>`case
+            when ${reviewSessions.completedQuestions} > 0
+              then round(((${reviewSessions.correctCount}::numeric / ${reviewSessions.completedQuestions}) * 100), 1)
+            else 0
+          end`,
+          startedAt: reviewSessions.startedAt,
+          completedAt: reviewSessions.completedAt,
+        })
+        .from(reviewSessions)
+        .where(and(
+          eq(reviewSessions.userId, userId),
+          sql`${reviewSessions.startedAt} >= ${formatDateKey(detailRange.startDate)}::date`,
+          sql`${reviewSessions.startedAt} < ${formatDateKey(detailRange.endExclusiveDate)}::date`
+        ))
+        .orderBy(desc(reviewSessions.startedAt)),
     ]);
 
     const basic = basicResult[0];
@@ -258,6 +396,24 @@ export async function GET(request: NextRequest) {
     const totalWrong = toNumber(reviewSummary?.totalWrong);
 
     const reviewSessionStats = reviewSessionStatsResult[0];
+    const rangeReviewSummary = rangeReviewSummaryResult[0];
+    const rangeTotalReviewRecords = toNumber(rangeReviewSummary?.totalReviewRecords);
+    const rangeTotalCorrect = toNumber(rangeReviewSummary?.totalCorrect);
+
+    const rangeDailyTrend = eachDateInRange(detailRange.startDate, detailRange.endDate).map((date) => {
+      const dayStat = rangeDailyStats.find(s => s.date === date);
+      const reviewCount = toNumber(dayStat?.reviewCount);
+      const correctCount = toNumber(dayStat?.correctCount);
+
+      return {
+        date,
+        reviewCount,
+        correctCount,
+        wrongCount: toNumber(dayStat?.wrongCount),
+        correctRate: reviewCount > 0 ? round((correctCount / reviewCount) * 100, 1) : 0,
+        averageMasteryImprovement: round(toNumber(dayStat?.averageMasteryImprovement), 1),
+      };
+    });
 
     const durationMs = Date.now() - startedAt;
     if (durationMs > 500) {
@@ -299,6 +455,33 @@ export async function GET(request: NextRequest) {
         wrongCount: toNumber(session.wrongCount),
         correctRate: toNumber(session.correctRate),
       })),
+      reviewDetail: {
+        range: {
+          preset: detailRange.preset,
+          startDate: formatDateKey(detailRange.startDate),
+          endDate: formatDateKey(detailRange.endDate),
+        },
+        summary: {
+          totalReviewRecords: rangeTotalReviewRecords,
+          totalCorrect: rangeTotalCorrect,
+          totalWrong: toNumber(rangeReviewSummary?.totalWrong),
+          cumulativeCorrectRate: rangeTotalReviewRecords > 0 ? round((rangeTotalCorrect / rangeTotalReviewRecords) * 100, 1) : 0,
+          averageMasteryImprovement: round(toNumber(rangeReviewSummary?.averageMasteryImprovement), 1),
+        },
+        dailyTrend: rangeDailyTrend,
+        sessions: rangeSessionStats.map(session => ({
+          sessionId: session.sessionId,
+          date: session.date,
+          status: session.status,
+          totalQuestions: toNumber(session.totalQuestions),
+          completedQuestions: toNumber(session.completedQuestions),
+          correctCount: toNumber(session.correctCount),
+          wrongCount: toNumber(session.wrongCount),
+          correctRate: toNumber(session.correctRate),
+          startedAt: session.startedAt,
+          completedAt: session.completedAt,
+        })),
+      },
     });
   } catch (error) {
     console.error('Get statistics error:', error);
