@@ -390,6 +390,7 @@ export default function ErrorQuestionStatisticsPage() {
   const masteryRate = statistics?.basic.masteryRate ?? 0;
   const cumulativeCorrectRate = statistics?.reviewSummary?.cumulativeCorrectRate ?? 0;
   const hasData = totalQuestions > 0 || totalReviewRecords > 0;
+  
   const overviewCards = statistics ? [
     {
       title: '总错题数',
@@ -435,6 +436,54 @@ export default function ErrorQuestionStatisticsPage() {
       icon: Percent,
       className: 'text-blue-600',
       iconClassName: 'bg-blue-50 text-blue-600',
+    },
+  ] : [];
+
+  const reviewCards = statistics?.reviewSummary ? [
+    {
+      title: '总复习次数',
+      value: totalReviewRecords,
+      helper: `共 ${statistics.reviewSessionStats?.totalSessions ?? 0} 个复习会话`,
+      badge: '复习',
+      icon: Repeat2,
+      className: 'text-amber-600',
+      iconClassName: 'bg-amber-50 text-amber-600',
+    },
+    {
+      title: '累计正确题数',
+      value: statistics.reviewSummary.totalCorrect,
+      helper: '历史所有复习记录',
+      badge: '答对',
+      icon: CheckCircle2,
+      className: 'text-green-600',
+      iconClassName: 'bg-green-50 text-green-600',
+    },
+    {
+      title: '累计错误题数',
+      value: statistics.reviewSummary.totalWrong,
+      helper: '历史所有复习记录',
+      badge: '答错',
+      icon: AlertCircle,
+      className: 'text-red-500',
+      iconClassName: 'bg-red-50 text-red-500',
+    },
+    {
+      title: '平均复习题数',
+      value: statistics.reviewSessionStats?.averageQuestionsPerSession ?? 0,
+      helper: '每次会话平均复习数',
+      badge: '题/次',
+      icon: Book,
+      className: 'text-blue-600',
+      iconClassName: 'bg-blue-50 text-blue-600',
+    },
+    {
+      title: '平均正确率',
+      value: `${statistics.reviewSessionStats?.averageCorrectRate ?? 0}%`,
+      helper: '所有会话正确率均值',
+      badge: '平均率',
+      icon: Percent,
+      className: 'text-purple-600',
+      iconClassName: 'bg-purple-50 text-purple-600',
     },
   ] : [];
 
@@ -616,6 +665,35 @@ export default function ErrorQuestionStatisticsPage() {
                 </CardContent>
               </Card>
             </div>
+
+            {/* 复习历史统计 */}
+            {reviewCards.length > 0 && (
+              <div className="mt-8 space-y-4">
+                <div className="flex items-center gap-2 px-1">
+                  <History className="size-5 text-gray-500" />
+                  <h2 className="text-xl font-bold text-gray-800">复习概览统计</h2>
+                </div>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+                  {reviewCards.map(({ title, value, helper, badge, icon: Icon, className, iconClassName }) => (
+                    <Card key={title} className="border-0 bg-white/80 shadow-md transition-shadow hover:shadow-lg">
+                      <CardContent className="p-4">
+                        <div className="mb-4 flex items-start justify-between gap-3">
+                          <div className={`flex size-9 items-center justify-center rounded-lg ${iconClassName}`}>
+                            <Icon className="size-5" />
+                          </div>
+                          <span className="rounded-full bg-white px-2.5 py-1 text-xs font-medium text-gray-500 shadow-sm">
+                            {badge}
+                          </span>
+                        </div>
+                        <div className="mb-1 text-sm text-gray-500">{title}</div>
+                        <div className={`text-3xl font-bold ${className}`}>{value}</div>
+                        <div className="mt-2 text-xs text-gray-400">{helper}</div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </main>
