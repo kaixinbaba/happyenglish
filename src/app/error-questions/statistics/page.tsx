@@ -23,6 +23,7 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
+  ComposedChart,
   Legend,
   Line,
   LineChart,
@@ -260,6 +261,76 @@ function Last7DaysTrendLineChart({ data }: { data: Array<{ date: string; count: 
             animationDuration={1000}
           />
         </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+function Last30DaysReviewTrendChart({ data }: { data: Array<{ date: string; reviewCount: number; correctRate: number }> }) {
+  if (data.length === 0) {
+    return (
+      <div className="flex h-60 items-center justify-center text-sm text-gray-400">
+        暂无复习趋势数据
+      </div>
+    );
+  }
+
+  const chartData = data.map(item => ({
+    ...item,
+    formattedDate: item.date.split('-').slice(1).join('-'),
+  }));
+
+  return (
+    <div className="h-60 w-full">
+      <ResponsiveContainer width="100%" height="100%">
+        <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+          <XAxis
+            dataKey="formattedDate"
+            tick={{ fontSize: 10, fill: '#6b7280' }}
+            axisLine={false}
+            tickLine={false}
+            dy={10}
+          />
+          <YAxis
+            yAxisId="left"
+            tick={{ fontSize: 10, fill: '#6b7280' }}
+            axisLine={false}
+            tickLine={false}
+            allowDecimals={false}
+          />
+          <YAxis
+            yAxisId="right"
+            orientation="right"
+            tick={{ fontSize: 10, fill: '#6b7280' }}
+            axisLine={false}
+            tickLine={false}
+            domain={[0, 100]}
+            tickFormatter={(value) => `${value}%`}
+          />
+          <Tooltip
+            contentStyle={{
+              backgroundColor: 'rgba(255, 255, 255, 0.9)',
+              borderRadius: '8px',
+              border: 'none',
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+            }}
+            labelStyle={{ fontSize: '12px', fontWeight: 'bold', color: '#374151', marginBottom: '4px' }}
+            itemStyle={{ fontSize: '12px' }}
+            formatter={(value, name) => {
+              if (name === '正确率') return [`${value}%`, name];
+              return [value, name];
+            }}
+          />
+          <Legend
+            verticalAlign="bottom"
+            height={36}
+            iconType="circle"
+            formatter={(value) => <span className="text-xs text-gray-600">{value}</span>}
+          />
+          <Bar yAxisId="left" dataKey="reviewCount" name="复习次数" fill="#f59e0b" radius={[4, 4, 0, 0]} maxBarSize={30} />
+          <Line yAxisId="right" type="monotone" dataKey="correctRate" name="正确率" stroke="#8b5cf6" strokeWidth={3} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+        </ComposedChart>
       </ResponsiveContainer>
     </div>
   );
@@ -692,6 +763,23 @@ export default function ErrorQuestionStatisticsPage() {
                     </Card>
                   ))}
                 </div>
+
+                {statistics.last30DaysReviewTrend && (
+                  <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+                    <Card className="border-0 bg-white/80 shadow-md lg:col-span-2">
+                      <CardHeader>
+                        <div className="mb-2 flex size-10 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
+                          <LineChartIcon className="size-5" />
+                        </div>
+                        <CardTitle className="text-base text-gray-800">复习趋势</CardTitle>
+                        <CardDescription>近 30 天复习次数与正确率</CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <Last30DaysReviewTrendChart data={statistics.last30DaysReviewTrend} />
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
               </div>
             )}
           </div>
