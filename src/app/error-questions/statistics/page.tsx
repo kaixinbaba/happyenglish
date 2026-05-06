@@ -10,7 +10,7 @@ import {
   Book,
   CheckCircle2,
   History,
-  LineChart,
+  LineChart as LineChartIcon,
   Loader2,
   LogOut,
   Percent,
@@ -21,8 +21,11 @@ import {
 import {
   Bar,
   BarChart,
+  CartesianGrid,
   Cell,
   Legend,
+  Line,
+  LineChart,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -198,6 +201,65 @@ function TopTagsBarChart({ data }: { data: Array<{ tag: string; count: number }>
             ))}
           </Bar>
         </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+function Last7DaysTrendLineChart({ data }: { data: Array<{ date: string; count: number }> }) {
+  if (data.length === 0) {
+    return (
+      <div className="flex h-60 items-center justify-center text-sm text-gray-400">
+        暂无趋势数据
+      </div>
+    );
+  }
+
+  // 只取最后 7 天，并确保日期格式简洁（MM-DD）
+  const chartData = data.slice(-7).map(item => ({
+    ...item,
+    formattedDate: item.date.split('-').slice(1).join('-'),
+  }));
+
+  return (
+    <div className="h-60 w-full">
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+          <XAxis
+            dataKey="formattedDate"
+            tick={{ fontSize: 10, fill: '#6b7280' }}
+            axisLine={false}
+            tickLine={false}
+            dy={10}
+          />
+          <YAxis
+            tick={{ fontSize: 10, fill: '#6b7280' }}
+            axisLine={false}
+            tickLine={false}
+            allowDecimals={false}
+          />
+          <Tooltip
+            contentStyle={{
+              backgroundColor: 'rgba(255, 255, 255, 0.9)',
+              borderRadius: '8px',
+              border: 'none',
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+            }}
+            labelStyle={{ fontSize: '12px', fontWeight: 'bold', color: '#374151', marginBottom: '4px' }}
+            itemStyle={{ fontSize: '12px', color: '#3b82f6' }}
+            formatter={(value) => [`${value} 个`, '新增错题']}
+          />
+          <Line
+            type="monotone"
+            dataKey="count"
+            stroke="#3b82f6"
+            strokeWidth={3}
+            dot={{ r: 4, fill: '#3b82f6', strokeWidth: 2, stroke: '#fff' }}
+            activeDot={{ r: 6, strokeWidth: 0 }}
+            animationDuration={1000}
+          />
+        </LineChart>
       </ResponsiveContainer>
     </div>
   );
@@ -531,7 +593,7 @@ export default function ErrorQuestionStatisticsPage() {
               <Card className="border-0 bg-white/80 shadow-md">
                 <CardHeader>
                   <div className="mb-2 flex size-10 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
-                    <LineChart className="size-5" />
+                    <BarChart3 className="size-5" />
                   </div>
                   <CardTitle className="text-base text-gray-800">标签分布</CardTitle>
                   <CardDescription>TOP 10 高频知识点标签</CardDescription>
@@ -544,15 +606,13 @@ export default function ErrorQuestionStatisticsPage() {
               <Card className="border-0 bg-white/80 shadow-md">
                 <CardHeader>
                   <div className="mb-2 flex size-10 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
-                    <BarChart3 className="size-5" />
+                    <LineChartIcon className="size-5" />
                   </div>
                   <CardTitle className="text-base text-gray-800">错题趋势</CardTitle>
                   <CardDescription>近 7 天新增错题趋势</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex h-60 items-center justify-center rounded-lg border border-dashed border-blue-100 bg-blue-50/40 text-sm text-gray-500">
-                    后续任务将在此处补充错题趋势图
-                  </div>
+                  <Last7DaysTrendLineChart data={statistics.last7DaysTrend} />
                 </CardContent>
               </Card>
             </div>
