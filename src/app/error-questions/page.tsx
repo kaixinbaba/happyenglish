@@ -22,7 +22,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Book, LogOut, Plus, MoreHorizontal, Edit, Trash2, PlayCircle, Loader2, AlertTriangle, History, Search } from 'lucide-react';
+import { Book, LogOut, Plus, MoreHorizontal, Edit, Trash2, PlayCircle, Loader2, AlertTriangle, History, Search, BarChart3 } from 'lucide-react';
 import { useAuth, getUserDisplayName } from '@/contexts/AuthContext';
 
 const questionTypeLabels: Record<string, string> = {
@@ -331,6 +331,12 @@ export default function ErrorQuestionsPage() {
               <Button variant="outline" className="border-blue-500 text-blue-500">
                 <PlayCircle className="w-4 h-4 mr-2" />
                 开始复习
+              </Button>
+            </Link>
+            <Link href="/error-questions/statistics">
+              <Button variant="outline" className="border-purple-500 text-purple-500">
+                <BarChart3 className="w-4 h-4 mr-2" />
+                统计
               </Button>
             </Link>
           </div>
