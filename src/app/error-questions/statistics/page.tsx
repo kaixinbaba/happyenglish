@@ -14,10 +14,18 @@ import {
   Loader2,
   LogOut,
   Percent,
-  PieChart,
+  PieChart as PieChartIcon,
   RefreshCw,
   Repeat2,
 } from 'lucide-react';
+import {
+  Cell,
+  Legend,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+} from 'recharts';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -67,6 +75,77 @@ interface Statistics {
 
 type LoadState = 'loading' | 'ready' | 'error';
 
+const questionTypeMap: Record<string, string> = {
+  'spelling': '单词拼写',
+  'word-choice': '词义选择',
+  'multiple-choice': '多项选择',
+  'grammar': '语法填空',
+  'translation': '翻译/连词',
+  'reading': '阅读理解',
+  'custom': '其他',
+};
+
+const CHART_COLORS = [
+  '#3b82f6', // blue-500
+  '#10b981', // emerald-500
+  '#f59e0b', // amber-500
+  '#ef4444', // red-500
+  '#8b5cf6', // violet-500
+  '#ec4899', // pink-500
+  '#06b6d4', // cyan-500
+];
+
+function TypeDistributionPieChart({ data }: { data: Array<{ type: string; count: number }> }) {
+  const chartData = data.map(item => ({
+    name: questionTypeMap[item.type] || item.type,
+    value: item.count,
+  })).sort((a, b) => b.value - a.value);
+
+  if (chartData.length === 0) {
+    return (
+      <div className="flex h-60 items-center justify-center text-sm text-gray-400">
+        暂无题型分布数据
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-60 w-full">
+      <ResponsiveContainer width="100%" height="100%">
+        <PieChart>
+          <Pie
+            data={chartData}
+            cx="50%"
+            cy="50%"
+            innerRadius={60}
+            outerRadius={80}
+            paddingAngle={5}
+            dataKey="value"
+          >
+            {chartData.map((_, index) => (
+              <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+            ))}
+          </Pie>
+          <Tooltip
+            contentStyle={{
+              backgroundColor: 'rgba(255, 255, 255, 0.9)',
+              borderRadius: '8px',
+              border: 'none',
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+            }}
+          />
+          <Legend
+            verticalAlign="bottom"
+            height={36}
+            iconType="circle"
+            formatter={(value) => <span className="text-xs text-gray-600">{value}</span>}
+          />
+        </PieChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
 async function fetchStatistics() {
   const response = await fetch('/api/error-questions/review/statistics');
   if (!response.ok) {
@@ -75,24 +154,6 @@ async function fetchStatistics() {
 
   return response.json() as Promise<Statistics>;
 }
-
-const sectionCards = [
-  {
-    title: '错题概览',
-    description: '总量、掌握率和待复习状态',
-    icon: BarChart3,
-  },
-  {
-    title: '错题分布',
-    description: '题型、标签和近 7 天趋势',
-    icon: PieChart,
-  },
-  {
-    title: '复习历史',
-    description: '复习次数、正确率和掌握度变化',
-    icon: LineChart,
-  },
-];
 
 function LoadingState() {
   return (
@@ -119,7 +180,7 @@ function LoadingState() {
               <Skeleton className="h-4 w-40" />
             </CardHeader>
             <CardContent>
-              <Skeleton className="h-40 w-full" />
+              <Skeleton className="h-60 w-full" />
             </CardContent>
           </Card>
         ))}
@@ -317,7 +378,7 @@ export default function ErrorQuestionStatisticsPage() {
             </div>
             <h1 className="text-2xl font-bold text-gray-800 sm:text-3xl">错题统计</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-500">
-              汇总错题分布、复习趋势和掌握度变化，为后续图表模块提供页面框架。
+              汇总错题分布、复习趋势和掌握度变化，为您提供直观的学习反馈。
             </p>
           </div>
           <Button
@@ -397,22 +458,48 @@ export default function ErrorQuestionStatisticsPage() {
             </div>
 
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-              {sectionCards.map(({ title, description, icon: Icon }) => (
-                <Card key={title} className="border-0 bg-white/80 shadow-md">
-                  <CardHeader>
-                    <div className="mb-2 flex size-10 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
-                      <Icon className="size-5" />
-                    </div>
-                    <CardTitle className="text-base text-gray-800">{title}</CardTitle>
-                    <CardDescription>{description}</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex h-40 items-center justify-center rounded-lg border border-dashed border-blue-100 bg-blue-50/40 text-sm text-gray-500">
-                      后续任务将在此处补充具体统计组件
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+              <Card className="border-0 bg-white/80 shadow-md">
+                <CardHeader>
+                  <div className="mb-2 flex size-10 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+                    <PieChartIcon className="size-5" />
+                  </div>
+                  <CardTitle className="text-base text-gray-800">题型分布</CardTitle>
+                  <CardDescription>各题型错题数量占比</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <TypeDistributionPieChart data={statistics.typeDistribution} />
+                </CardContent>
+              </Card>
+
+              <Card className="border-0 bg-white/80 shadow-md">
+                <CardHeader>
+                  <div className="mb-2 flex size-10 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+                    <LineChart className="size-5" />
+                  </div>
+                  <CardTitle className="text-base text-gray-800">标签分布</CardTitle>
+                  <CardDescription>TOP 10 高频知识点标签</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex h-60 items-center justify-center rounded-lg border border-dashed border-blue-100 bg-blue-50/40 text-sm text-gray-500">
+                    后续任务将在此处补充标签分布图
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-0 bg-white/80 shadow-md">
+                <CardHeader>
+                  <div className="mb-2 flex size-10 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+                    <BarChart3 className="size-5" />
+                  </div>
+                  <CardTitle className="text-base text-gray-800">错题趋势</CardTitle>
+                  <CardDescription>近 7 天新增错题趋势</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex h-60 items-center justify-center rounded-lg border border-dashed border-blue-100 bg-blue-50/40 text-sm text-gray-500">
+                    后续任务将在此处补充错题趋势图
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </div>
         )}
