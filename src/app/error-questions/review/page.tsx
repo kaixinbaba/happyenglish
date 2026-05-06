@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, Suspense } from 'react';
+import { useEffect, useState, useCallback, Suspense, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -50,8 +50,8 @@ function ReviewContent() {
   const [questions, setQuestions] = useState<ReviewQuestion[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [showAnswer, setShowAnswer] = useState(false);
+  const submittedQuestionIdsRef = useRef<Set<string>>(new Set());
   const [reviewedCount, setReviewedCount] = useState(0);
   const [correctCount, setCorrectCount] = useState(0);
   const [sessionData, setSessionData] = useState<any>(null);
@@ -93,42 +93,55 @@ function ReviewContent() {
     loadReviewData();
   }, [loadReviewData]);
 
-  const handleSubmitReview = async (isCorrect: boolean) => {
-    if (!questions[currentIndex] || isSubmitting) return;
-
-    const currentQuestion = questions[currentIndex];
-    setIsSubmitting(true);
-    try {
-      const response = await fetch('/api/error-questions/review/complete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          questionId: currentQuestion.id,
-          result: isCorrect ? 'correct' : 'wrong',
-          sessionId: sessionId,
-          orderIndex: currentQuestion.orderIndex || currentIndex,
-        }),
-      });
-
-      if (response.ok) {
-        setReviewedCount((prev) => prev + 1);
-        if (isCorrect) setCorrectCount((prev) => prev + 1);
-
-        if (currentIndex < questions.length - 1) {
-          setCurrentIndex((prev) => prev + 1);
-          setShowAnswer(false);
-        } else {
-          setSessionData((prev: any) =>
-            prev ? { ...prev, status: 'completed' } : null
-          );
+  const submitReviewInBackground = (
+    params: { questionId: string; result: string; sessionId: string | null; orderIndex: number },
+    retriesLeft: number = 2,
+  ) => {
+    fetch('/api/error-questions/review/complete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+    })
+      .then((response) => {
+        if (!response.ok && retriesLeft > 0 && response.status >= 500) {
+          setTimeout(() => submitReviewInBackground(params, retriesLeft - 1), 1000);
         }
-      }
-    } catch (error) {
-      console.error('Submit review error:', error);
-      alert('提交失败，请重试');
-    } finally {
-      setIsSubmitting(false);
+      })
+      .catch(() => {
+        if (retriesLeft > 0) {
+          setTimeout(() => submitReviewInBackground(params, retriesLeft - 1), 1000);
+        }
+      });
+  };
+
+  const handleSubmitReview = (isCorrect: boolean) => {
+    const currentQuestion = questions[currentIndex];
+    if (!currentQuestion) return;
+
+    // 按 questionId 去重，防止重复提交
+    if (submittedQuestionIdsRef.current.has(currentQuestion.id)) return;
+    submittedQuestionIdsRef.current.add(currentQuestion.id);
+
+    // 乐观更新本地状态 — 同步执行，立即切题
+    setReviewedCount((prev) => prev + 1);
+    if (isCorrect) setCorrectCount((prev) => prev + 1);
+
+    if (currentIndex < questions.length - 1) {
+      setCurrentIndex((prev) => prev + 1);
+      setShowAnswer(false);
+    } else {
+      setSessionData((prev: any) =>
+        prev ? { ...prev, status: 'completed' } : null
+      );
     }
+
+    // 后台提交，不阻塞 UI
+    submitReviewInBackground({
+      questionId: currentQuestion.id,
+      result: isCorrect ? 'correct' : 'wrong',
+      sessionId: sessionId,
+      orderIndex: currentQuestion.orderIndex || currentIndex,
+    });
   };
 
   const renderQuestionContent = (question: ReviewQuestion) => {
@@ -485,7 +498,6 @@ function ReviewContent() {
               <Button
                 className="flex-1 h-12 bg-green-500 hover:bg-green-600 text-white text-lg font-medium"
                 onClick={() => handleSubmitReview(true)}
-                disabled={isSubmitting}
               >
                 <CheckCircle className="w-5 h-5 mr-2" />
                 答对了
@@ -493,7 +505,6 @@ function ReviewContent() {
               <Button
                 className="flex-1 h-12 bg-red-500 hover:bg-red-600 text-white text-lg font-medium"
                 onClick={() => handleSubmitReview(false)}
-                disabled={isSubmitting}
               >
                 <XCircle className="w-5 h-5 mr-2" />
                 答错了
