@@ -19,12 +19,16 @@ import {
   Repeat2,
 } from 'lucide-react';
 import {
+  Bar,
+  BarChart,
   Cell,
   Legend,
   Pie,
   PieChart,
   ResponsiveContainer,
   Tooltip,
+  XAxis,
+  YAxis,
 } from 'recharts';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -141,6 +145,59 @@ function TypeDistributionPieChart({ data }: { data: Array<{ type: string; count:
             formatter={(value) => <span className="text-xs text-gray-600">{value}</span>}
           />
         </PieChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+function TopTagsBarChart({ data }: { data: Array<{ tag: string; count: number }> }) {
+  const chartData = [...data].sort((a, b) => b.count - a.count).slice(0, 10);
+
+  if (chartData.length === 0) {
+    return (
+      <div className="flex h-60 items-center justify-center text-sm text-gray-400">
+        暂无标签分布数据
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-60 w-full">
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart
+          data={chartData}
+          layout="vertical"
+          margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+        >
+          <XAxis type="number" hide />
+          <YAxis
+            dataKey="tag"
+            type="category"
+            width={80}
+            tick={{ fontSize: 12, fill: '#6b7280' }}
+            axisLine={false}
+            tickLine={false}
+          />
+          <Tooltip
+            cursor={{ fill: 'transparent' }}
+            contentStyle={{
+              backgroundColor: 'rgba(255, 255, 255, 0.9)',
+              borderRadius: '8px',
+              border: 'none',
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+            }}
+          />
+          <Bar
+            dataKey="count"
+            radius={[0, 4, 4, 0]}
+            barSize={20}
+            label={{ position: 'right', fill: '#6b7280', fontSize: 10 }}
+          >
+            {chartData.map((_, index) => (
+              <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+            ))}
+          </Bar>
+        </BarChart>
       </ResponsiveContainer>
     </div>
   );
@@ -480,9 +537,7 @@ export default function ErrorQuestionStatisticsPage() {
                   <CardDescription>TOP 10 高频知识点标签</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex h-60 items-center justify-center rounded-lg border border-dashed border-blue-100 bg-blue-50/40 text-sm text-gray-500">
-                    后续任务将在此处补充标签分布图
-                  </div>
+                  <TopTagsBarChart data={statistics.topTags} />
                 </CardContent>
               </Card>
 
