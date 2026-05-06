@@ -47,6 +47,7 @@ import {
 } from '@/components/ui/empty';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth, getUserDisplayName } from '@/contexts/AuthContext';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface Statistics {
   basic: {
@@ -104,7 +105,15 @@ const CHART_COLORS = [
   '#06b6d4', // cyan-500
 ];
 
+const chartTooltipStyle = {
+  backgroundColor: 'rgba(255, 255, 255, 0.95)',
+  borderRadius: '8px',
+  border: 'none',
+  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+};
+
 function TypeDistributionPieChart({ data }: { data: Array<{ type: string; count: number }> }) {
+  const isMobile = useIsMobile();
   const chartData = data.map(item => ({
     name: questionTypeMap[item.type] || item.type,
     value: item.count,
@@ -119,15 +128,15 @@ function TypeDistributionPieChart({ data }: { data: Array<{ type: string; count:
   }
 
   return (
-    <div className="h-60 w-full">
+    <div className="h-72 w-full sm:h-60">
       <ResponsiveContainer width="100%" height="100%">
-        <PieChart>
+        <PieChart margin={{ top: 4, right: isMobile ? 0 : 8, left: isMobile ? 0 : 8, bottom: 4 }}>
           <Pie
             data={chartData}
             cx="50%"
-            cy="50%"
-            innerRadius={60}
-            outerRadius={80}
+            cy={isMobile ? '42%' : '45%'}
+            innerRadius={isMobile ? 48 : 60}
+            outerRadius={isMobile ? 68 : 80}
             paddingAngle={5}
             dataKey="value"
           >
@@ -135,19 +144,13 @@ function TypeDistributionPieChart({ data }: { data: Array<{ type: string; count:
               <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
             ))}
           </Pie>
-          <Tooltip
-            contentStyle={{
-              backgroundColor: 'rgba(255, 255, 255, 0.9)',
-              borderRadius: '8px',
-              border: 'none',
-              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
-            }}
-          />
+          <Tooltip contentStyle={chartTooltipStyle} />
           <Legend
             verticalAlign="bottom"
-            height={36}
+            height={isMobile ? 72 : 36}
             iconType="circle"
-            formatter={(value) => <span className="text-xs text-gray-600">{value}</span>}
+            wrapperStyle={{ lineHeight: isMobile ? '20px' : '18px', paddingTop: isMobile ? 8 : 0 }}
+            formatter={(value) => <span className="text-[11px] text-gray-600 sm:text-xs">{value}</span>}
           />
         </PieChart>
       </ResponsiveContainer>
@@ -156,6 +159,7 @@ function TypeDistributionPieChart({ data }: { data: Array<{ type: string; count:
 }
 
 function TopTagsBarChart({ data }: { data: Array<{ tag: string; count: number }> }) {
+  const isMobile = useIsMobile();
   const chartData = [...data].sort((a, b) => b.count - a.count).slice(0, 10);
 
   if (chartData.length === 0) {
@@ -167,36 +171,37 @@ function TopTagsBarChart({ data }: { data: Array<{ tag: string; count: number }>
   }
 
   return (
-    <div className="h-60 w-full">
+    <div className="h-80 w-full sm:h-60">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart
           data={chartData}
           layout="vertical"
-          margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+          margin={{
+            top: 5,
+            right: isMobile ? 24 : 30,
+            left: isMobile ? 4 : 20,
+            bottom: 5,
+          }}
         >
           <XAxis type="number" hide />
           <YAxis
             dataKey="tag"
             type="category"
-            width={80}
-            tick={{ fontSize: 12, fill: '#6b7280' }}
+            width={isMobile ? 92 : 80}
+            tick={{ fontSize: isMobile ? 11 : 12, fill: '#6b7280' }}
             axisLine={false}
             tickLine={false}
+            tickFormatter={(value) => value.length > (isMobile ? 7 : 8) ? `${value.slice(0, isMobile ? 7 : 8)}...` : value}
           />
           <Tooltip
             cursor={{ fill: 'transparent' }}
-            contentStyle={{
-              backgroundColor: 'rgba(255, 255, 255, 0.9)',
-              borderRadius: '8px',
-              border: 'none',
-              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
-            }}
+            contentStyle={chartTooltipStyle}
           />
           <Bar
             dataKey="count"
             radius={[0, 4, 4, 0]}
-            barSize={20}
-            label={{ position: 'right', fill: '#6b7280', fontSize: 10 }}
+            barSize={isMobile ? 16 : 20}
+            label={{ position: 'right', fill: '#6b7280', fontSize: isMobile ? 9 : 10 }}
           >
             {chartData.map((_, index) => (
               <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
@@ -209,6 +214,8 @@ function TopTagsBarChart({ data }: { data: Array<{ tag: string; count: number }>
 }
 
 function Last7DaysTrendLineChart({ data }: { data: Array<{ date: string; count: number }> }) {
+  const isMobile = useIsMobile();
+
   if (data.length === 0) {
     return (
       <div className="flex h-60 items-center justify-center text-sm text-gray-400">
@@ -224,30 +231,33 @@ function Last7DaysTrendLineChart({ data }: { data: Array<{ date: string; count: 
   }));
 
   return (
-    <div className="h-60 w-full">
+    <div className="h-72 w-full sm:h-60">
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+        <LineChart
+          data={chartData}
+          margin={{
+            top: 12,
+            right: isMobile ? 8 : 10,
+            left: isMobile ? -28 : -20,
+            bottom: isMobile ? 10 : 0,
+          }}
+        >
           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
           <XAxis
             dataKey="formattedDate"
-            tick={{ fontSize: 10, fill: '#6b7280' }}
+            tick={{ fontSize: isMobile ? 9 : 10, fill: '#6b7280' }}
             axisLine={false}
             tickLine={false}
             dy={10}
           />
           <YAxis
-            tick={{ fontSize: 10, fill: '#6b7280' }}
+            tick={{ fontSize: isMobile ? 9 : 10, fill: '#6b7280' }}
             axisLine={false}
             tickLine={false}
             allowDecimals={false}
           />
           <Tooltip
-            contentStyle={{
-              backgroundColor: 'rgba(255, 255, 255, 0.9)',
-              borderRadius: '8px',
-              border: 'none',
-              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
-            }}
+            contentStyle={chartTooltipStyle}
             labelStyle={{ fontSize: '12px', fontWeight: 'bold', color: '#374151', marginBottom: '4px' }}
             itemStyle={{ fontSize: '12px', color: '#3b82f6' }}
             formatter={(value) => [`${value} 个`, '新增错题']}
@@ -268,6 +278,8 @@ function Last7DaysTrendLineChart({ data }: { data: Array<{ date: string; count: 
 }
 
 function Last30DaysReviewTrendChart({ data }: { data: Array<{ date: string; reviewCount: number; correctRate: number }> }) {
+  const isMobile = useIsMobile();
+
   if (data.length === 0) {
     return (
       <div className="flex h-60 items-center justify-center text-sm text-gray-400">
@@ -282,20 +294,29 @@ function Last30DaysReviewTrendChart({ data }: { data: Array<{ date: string; revi
   }));
 
   return (
-    <div className="h-60 w-full">
+    <div className="h-80 w-full sm:h-72">
       <ResponsiveContainer width="100%" height="100%">
-        <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+        <ComposedChart
+          data={chartData}
+          margin={{
+            top: 10,
+            right: isMobile ? -8 : 10,
+            left: isMobile ? -30 : -20,
+            bottom: isMobile ? 18 : 0,
+          }}
+        >
           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
           <XAxis
             dataKey="formattedDate"
-            tick={{ fontSize: 10, fill: '#6b7280' }}
+            tick={{ fontSize: isMobile ? 9 : 10, fill: '#6b7280' }}
             axisLine={false}
             tickLine={false}
             dy={10}
+            interval={isMobile ? 6 : 3}
           />
           <YAxis
             yAxisId="left"
-            tick={{ fontSize: 10, fill: '#6b7280' }}
+            tick={{ fontSize: isMobile ? 9 : 10, fill: '#6b7280' }}
             axisLine={false}
             tickLine={false}
             allowDecimals={false}
@@ -303,19 +324,15 @@ function Last30DaysReviewTrendChart({ data }: { data: Array<{ date: string; revi
           <YAxis
             yAxisId="right"
             orientation="right"
-            tick={{ fontSize: 10, fill: '#6b7280' }}
+            width={isMobile ? 34 : 40}
+            tick={{ fontSize: isMobile ? 9 : 10, fill: '#6b7280' }}
             axisLine={false}
             tickLine={false}
             domain={[0, 100]}
             tickFormatter={(value) => `${value}%`}
           />
           <Tooltip
-            contentStyle={{
-              backgroundColor: 'rgba(255, 255, 255, 0.9)',
-              borderRadius: '8px',
-              border: 'none',
-              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
-            }}
+            contentStyle={chartTooltipStyle}
             labelStyle={{ fontSize: '12px', fontWeight: 'bold', color: '#374151', marginBottom: '4px' }}
             itemStyle={{ fontSize: '12px' }}
             formatter={(value, name) => {
@@ -329,8 +346,8 @@ function Last30DaysReviewTrendChart({ data }: { data: Array<{ date: string; revi
             iconType="circle"
             formatter={(value) => <span className="text-xs text-gray-600">{value}</span>}
           />
-          <Bar yAxisId="left" dataKey="reviewCount" name="复习次数" fill="#f59e0b" radius={[4, 4, 0, 0]} maxBarSize={30} />
-          <Line yAxisId="right" type="monotone" dataKey="correctRate" name="正确率" stroke="#8b5cf6" strokeWidth={3} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+          <Bar yAxisId="left" dataKey="reviewCount" name="复习次数" fill="#f59e0b" radius={[4, 4, 0, 0]} maxBarSize={isMobile ? 18 : 30} />
+          <Line yAxisId="right" type="monotone" dataKey="correctRate" name="正确率" stroke="#8b5cf6" strokeWidth={isMobile ? 2 : 3} dot={{ r: isMobile ? 2 : 3 }} activeDot={{ r: 5 }} />
         </ComposedChart>
       </ResponsiveContainer>
     </div>
@@ -338,6 +355,8 @@ function Last30DaysReviewTrendChart({ data }: { data: Array<{ date: string; revi
 }
 
 function MasteryDistributionBarChart({ data }: { data: Array<{ range: string; label: string; count: number }> }) {
+  const isMobile = useIsMobile();
+
   if (!data || data.length === 0 || data.every(d => d.count === 0)) {
     return (
       <div className="flex h-60 items-center justify-center text-sm text-gray-400">
@@ -359,40 +378,43 @@ function MasteryDistributionBarChart({ data }: { data: Array<{ range: string; la
   };
 
   return (
-    <div className="h-60 w-full">
+    <div className="h-72 w-full sm:h-60">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart
           data={data}
-          margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+          margin={{
+            top: 10,
+            right: isMobile ? 6 : 10,
+            left: isMobile ? -28 : -20,
+            bottom: isMobile ? 28 : 0,
+          }}
         >
           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
           <XAxis
             dataKey="label"
-            tick={{ fontSize: 10, fill: '#6b7280' }}
+            tick={{ fontSize: isMobile ? 9 : 10, fill: '#6b7280' }}
             axisLine={false}
             tickLine={false}
             dy={10}
+            interval={0}
+            angle={isMobile ? -20 : 0}
+            textAnchor={isMobile ? 'end' : 'middle'}
           />
           <YAxis
-            tick={{ fontSize: 10, fill: '#6b7280' }}
+            tick={{ fontSize: isMobile ? 9 : 10, fill: '#6b7280' }}
             axisLine={false}
             tickLine={false}
             allowDecimals={false}
           />
           <Tooltip
             cursor={{ fill: 'transparent' }}
-            contentStyle={{
-              backgroundColor: 'rgba(255, 255, 255, 0.9)',
-              borderRadius: '8px',
-              border: 'none',
-              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
-            }}
+            contentStyle={chartTooltipStyle}
             formatter={(value) => [`${value} 题`, '错题数量']}
           />
           <Bar
             dataKey="count"
             radius={[4, 4, 0, 0]}
-            maxBarSize={40}
+            maxBarSize={isMobile ? 28 : 40}
           >
             {data.map((entry, index) => (
               <Cell key={`cell-${index}`} fill={getRangeColor(entry.range)} />
@@ -405,6 +427,8 @@ function MasteryDistributionBarChart({ data }: { data: Array<{ range: string; la
 }
 
 function ReviewSessionCorrectRateTrendChart({ data }: { data: Array<{ date: string; correctRate: number }> }) {
+  const isMobile = useIsMobile();
+
   if (!data || data.length === 0) {
     return (
       <div className="flex h-60 items-center justify-center text-sm text-gray-400">
@@ -419,31 +443,35 @@ function ReviewSessionCorrectRateTrendChart({ data }: { data: Array<{ date: stri
   }));
 
   return (
-    <div className="h-60 w-full">
+    <div className="h-80 w-full sm:h-72">
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+        <LineChart
+          data={chartData}
+          margin={{
+            top: 10,
+            right: isMobile ? 6 : 10,
+            left: isMobile ? -28 : -20,
+            bottom: isMobile ? 18 : 0,
+          }}
+        >
           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
           <XAxis
             dataKey="formattedDate"
-            tick={{ fontSize: 10, fill: '#6b7280' }}
+            tick={{ fontSize: isMobile ? 9 : 10, fill: '#6b7280' }}
             axisLine={false}
             tickLine={false}
             dy={10}
+            interval={isMobile ? 6 : 3}
           />
           <YAxis
-            tick={{ fontSize: 10, fill: '#6b7280' }}
+            tick={{ fontSize: isMobile ? 9 : 10, fill: '#6b7280' }}
             axisLine={false}
             tickLine={false}
             domain={[0, 100]}
             tickFormatter={(value) => `${value}%`}
           />
           <Tooltip
-            contentStyle={{
-              backgroundColor: 'rgba(255, 255, 255, 0.9)',
-              borderRadius: '8px',
-              border: 'none',
-              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
-            }}
+            contentStyle={chartTooltipStyle}
             labelStyle={{ fontSize: '12px', fontWeight: 'bold', color: '#374151', marginBottom: '4px' }}
             itemStyle={{ fontSize: '12px', color: '#8b5cf6' }}
             formatter={(value) => [`${value}%`, '平均正确率']}
@@ -455,8 +483,8 @@ function ReviewSessionCorrectRateTrendChart({ data }: { data: Array<{ date: stri
             type="monotone"
             dataKey="correctRate"
             stroke="#8b5cf6"
-            strokeWidth={3}
-            dot={{ r: 4, fill: '#8b5cf6', strokeWidth: 2, stroke: '#fff' }}
+            strokeWidth={isMobile ? 2 : 3}
+            dot={{ r: isMobile ? 3 : 4, fill: '#8b5cf6', strokeWidth: 2, stroke: '#fff' }}
             activeDot={{ r: 6, strokeWidth: 0 }}
             animationDuration={1000}
           />
@@ -478,7 +506,7 @@ async function fetchStatistics() {
 function LoadingState() {
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
         {Array.from({ length: 5 }).map((_, index) => (
           <Card key={index} className="border-0 bg-white/80 shadow-md">
             <CardContent className="p-4">
@@ -691,26 +719,26 @@ export default function ErrorQuestionStatisticsPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 via-white to-purple-50">
       <header className="sticky top-0 z-50 border-b bg-white/80 backdrop-blur-sm">
-        <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3">
-          <div className="flex items-center gap-2">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-2 px-3 py-3 sm:gap-3 sm:px-4">
+          <div className="flex min-w-0 items-center gap-2">
             <Link href="/error-questions">
-              <Button variant="ghost" size="sm" className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 transition-colors group" aria-label="返回错题本">
+              <Button variant="ghost" size="sm" className="shrink-0 p-2 text-gray-500 transition-colors hover:bg-blue-50 hover:text-blue-600 group" aria-label="返回错题本">
                 <ArrowLeft className="size-5 transition-transform group-hover:-translate-x-1" />
-                <span className="hidden sm:inline-block ml-1">返回错题本</span>
+                <span className="ml-1 hidden sm:inline-block">返回错题本</span>
               </Button>
             </Link>
             <div className="hidden h-5 w-px bg-gray-200 sm:block" />
-            <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+            <span className="truncate bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-lg font-bold text-transparent sm:text-xl">
               错题统计
             </span>
           </div>
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex shrink-0 items-center gap-1 sm:gap-3">
             {user ? (
               <>
                 <Link href="/error-questions/review/history">
-                  <Button variant="ghost" size="sm" className="hidden items-center gap-2 sm:flex">
+                  <Button variant="ghost" size="sm" className="flex items-center gap-2 px-2 sm:px-3" aria-label="复习历史">
                     <History className="size-4" />
-                    复习历史
+                    <span className="hidden sm:inline">复习历史</span>
                   </Button>
                 </Link>
                 <div className="hidden items-center gap-2 sm:flex">
@@ -742,7 +770,7 @@ export default function ErrorQuestionStatisticsPage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-5xl p-4 sm:p-8">
+      <main className="mx-auto max-w-6xl p-3 sm:p-6 lg:p-8">
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-blue-100 bg-white/70 px-3 py-1 text-sm text-blue-700">
@@ -759,7 +787,7 @@ export default function ErrorQuestionStatisticsPage() {
             variant="outline"
             onClick={handleRetry}
             disabled={!user || loadState === 'loading'}
-            className="border-blue-200 bg-white/80 text-blue-600 hover:bg-blue-50"
+            className="w-full border-blue-200 bg-white/80 text-blue-600 hover:bg-blue-50 sm:w-auto"
           >
             {loadState === 'loading' ? (
               <Loader2 className="size-4 animate-spin" />
@@ -810,7 +838,7 @@ export default function ErrorQuestionStatisticsPage() {
 
         {!isAuthLoading && loadState === 'ready' && hasData && statistics && (
           <div className="space-y-6">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
               {overviewCards.map(({ title, value, helper, badge, icon: Icon, className, iconClassName }) => (
                 <Card key={title} className="border-0 bg-white/80 shadow-md transition-shadow hover:shadow-lg">
                   <CardContent className="p-4">
@@ -823,8 +851,8 @@ export default function ErrorQuestionStatisticsPage() {
                       </span>
                     </div>
                     <div className="mb-1 text-sm text-gray-500">{title}</div>
-                    <div className={`text-3xl font-bold ${className}`}>{value}</div>
-                    <div className="mt-2 text-xs text-gray-400">{helper}</div>
+                    <div className={`break-words text-2xl font-bold sm:text-3xl ${className}`}>{value}</div>
+                    <div className="mt-2 text-xs leading-5 text-gray-400">{helper}</div>
                   </CardContent>
                 </Card>
               ))}
@@ -878,7 +906,7 @@ export default function ErrorQuestionStatisticsPage() {
                   <History className="size-5 text-gray-500" />
                   <h2 className="text-xl font-bold text-gray-800">复习概览统计</h2>
                 </div>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
                   {reviewCards.map(({ title, value, helper, badge, icon: Icon, className, iconClassName }) => (
                     <Card key={title} className="border-0 bg-white/80 shadow-md transition-shadow hover:shadow-lg">
                       <CardContent className="p-4">
@@ -891,8 +919,8 @@ export default function ErrorQuestionStatisticsPage() {
                           </span>
                         </div>
                         <div className="mb-1 text-sm text-gray-500">{title}</div>
-                        <div className={`text-3xl font-bold ${className}`}>{value}</div>
-                        <div className="mt-2 text-xs text-gray-400">{helper}</div>
+                        <div className={`break-words text-2xl font-bold sm:text-3xl ${className}`}>{value}</div>
+                        <div className="mt-2 text-xs leading-5 text-gray-400">{helper}</div>
                       </CardContent>
                     </Card>
                   ))}
