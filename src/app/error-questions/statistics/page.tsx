@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import {
@@ -112,12 +112,22 @@ const chartTooltipStyle = {
   boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
 };
 
-function TypeDistributionPieChart({ data }: { data: Array<{ type: string; count: number }> }) {
+const MASTERY_RANGE_COLORS: Record<string, string> = {
+  '0-20': '#ef4444',
+  '20-40': '#f97316',
+  '40-60': '#f59e0b',
+  '60-80': '#84cc16',
+  '80-100': '#10b981',
+};
+
+const TypeDistributionPieChart = memo(function TypeDistributionPieChart({ data }: { data: Array<{ type: string; count: number }> }) {
   const isMobile = useIsMobile();
-  const chartData = data.map(item => ({
-    name: questionTypeMap[item.type] || item.type,
-    value: item.count,
-  })).sort((a, b) => b.value - a.value);
+  const chartData = useMemo(() => (
+    data.map(item => ({
+      name: questionTypeMap[item.type] || item.type,
+      value: item.count,
+    })).sort((a, b) => b.value - a.value)
+  ), [data]);
 
   if (chartData.length === 0) {
     return (
@@ -156,11 +166,13 @@ function TypeDistributionPieChart({ data }: { data: Array<{ type: string; count:
       </ResponsiveContainer>
     </div>
   );
-}
+});
 
-function TopTagsBarChart({ data }: { data: Array<{ tag: string; count: number }> }) {
+const TopTagsBarChart = memo(function TopTagsBarChart({ data }: { data: Array<{ tag: string; count: number }> }) {
   const isMobile = useIsMobile();
-  const chartData = [...data].sort((a, b) => b.count - a.count).slice(0, 10);
+  const chartData = useMemo(() => (
+    [...data].sort((a, b) => b.count - a.count).slice(0, 10)
+  ), [data]);
 
   if (chartData.length === 0) {
     return (
@@ -211,10 +223,16 @@ function TopTagsBarChart({ data }: { data: Array<{ tag: string; count: number }>
       </ResponsiveContainer>
     </div>
   );
-}
+});
 
-function Last7DaysTrendLineChart({ data }: { data: Array<{ date: string; count: number }> }) {
+const Last7DaysTrendLineChart = memo(function Last7DaysTrendLineChart({ data }: { data: Array<{ date: string; count: number }> }) {
   const isMobile = useIsMobile();
+  const chartData = useMemo(() => (
+    data.slice(-7).map(item => ({
+      ...item,
+      formattedDate: item.date.split('-').slice(1).join('-'),
+    }))
+  ), [data]);
 
   if (data.length === 0) {
     return (
@@ -223,12 +241,6 @@ function Last7DaysTrendLineChart({ data }: { data: Array<{ date: string; count: 
       </div>
     );
   }
-
-  // 只取最后 7 天，并确保日期格式简洁（MM-DD）
-  const chartData = data.slice(-7).map(item => ({
-    ...item,
-    formattedDate: item.date.split('-').slice(1).join('-'),
-  }));
 
   return (
     <div className="h-72 w-full sm:h-60">
@@ -275,10 +287,16 @@ function Last7DaysTrendLineChart({ data }: { data: Array<{ date: string; count: 
       </ResponsiveContainer>
     </div>
   );
-}
+});
 
-function Last30DaysReviewTrendChart({ data }: { data: Array<{ date: string; reviewCount: number; correctRate: number }> }) {
+const Last30DaysReviewTrendChart = memo(function Last30DaysReviewTrendChart({ data }: { data: Array<{ date: string; reviewCount: number; correctRate: number }> }) {
   const isMobile = useIsMobile();
+  const chartData = useMemo(() => (
+    data.map(item => ({
+      ...item,
+      formattedDate: item.date.split('-').slice(1).join('-'),
+    }))
+  ), [data]);
 
   if (data.length === 0) {
     return (
@@ -287,11 +305,6 @@ function Last30DaysReviewTrendChart({ data }: { data: Array<{ date: string; revi
       </div>
     );
   }
-
-  const chartData = data.map(item => ({
-    ...item,
-    formattedDate: item.date.split('-').slice(1).join('-'),
-  }));
 
   return (
     <div className="h-80 w-full sm:h-72">
@@ -352,9 +365,9 @@ function Last30DaysReviewTrendChart({ data }: { data: Array<{ date: string; revi
       </ResponsiveContainer>
     </div>
   );
-}
+});
 
-function MasteryDistributionBarChart({ data }: { data: Array<{ range: string; label: string; count: number }> }) {
+const MasteryDistributionBarChart = memo(function MasteryDistributionBarChart({ data }: { data: Array<{ range: string; label: string; count: number }> }) {
   const isMobile = useIsMobile();
 
   if (!data || data.length === 0 || data.every(d => d.count === 0)) {
@@ -364,18 +377,6 @@ function MasteryDistributionBarChart({ data }: { data: Array<{ range: string; la
       </div>
     );
   }
-
-  // 颜色映射：从红色（0-20）到绿色（80-100）
-  const getRangeColor = (range: string) => {
-    switch (range) {
-      case '0-20': return '#ef4444';   // red-500
-      case '20-40': return '#f97316';  // orange-500
-      case '40-60': return '#f59e0b';  // amber-500
-      case '60-80': return '#84cc16';  // lime-500
-      case '80-100': return '#10b981'; // emerald-500
-      default: return '#3b82f6';
-    }
-  };
 
   return (
     <div className="h-72 w-full sm:h-60">
@@ -417,17 +418,23 @@ function MasteryDistributionBarChart({ data }: { data: Array<{ range: string; la
             maxBarSize={isMobile ? 28 : 40}
           >
             {data.map((entry, index) => (
-              <Cell key={`cell-${index}`} fill={getRangeColor(entry.range)} />
+              <Cell key={`cell-${index}`} fill={MASTERY_RANGE_COLORS[entry.range] ?? '#3b82f6'} />
             ))}
           </Bar>
         </BarChart>
       </ResponsiveContainer>
     </div>
   );
-}
+});
 
-function ReviewSessionCorrectRateTrendChart({ data }: { data: Array<{ date: string; correctRate: number }> }) {
+const ReviewSessionCorrectRateTrendChart = memo(function ReviewSessionCorrectRateTrendChart({ data }: { data: Array<{ date: string; correctRate: number }> }) {
   const isMobile = useIsMobile();
+  const chartData = useMemo(() => (
+    data.map(item => ({
+      ...item,
+      formattedDate: item.date.split('-').slice(1).join('-'),
+    }))
+  ), [data]);
 
   if (!data || data.length === 0) {
     return (
@@ -436,11 +443,6 @@ function ReviewSessionCorrectRateTrendChart({ data }: { data: Array<{ date: stri
       </div>
     );
   }
-
-  const chartData = data.map(item => ({
-    ...item,
-    formattedDate: item.date.split('-').slice(1).join('-'),
-  }));
 
   return (
     <div className="h-80 w-full sm:h-72">
@@ -492,10 +494,13 @@ function ReviewSessionCorrectRateTrendChart({ data }: { data: Array<{ date: stri
       </ResponsiveContainer>
     </div>
   );
-}
+});
 
-async function fetchStatistics() {
-  const response = await fetch('/api/error-questions/review/statistics');
+async function fetchStatistics(signal?: AbortSignal) {
+  const response = await fetch('/api/error-questions/review/statistics', {
+    cache: 'no-store',
+    signal,
+  });
   if (!response.ok) {
     throw new Error('Failed to load statistics');
   }
@@ -569,14 +574,15 @@ export default function ErrorQuestionStatisticsPage() {
   const [statistics, setStatistics] = useState<Statistics | null>(null);
   const [loadState, setLoadState] = useState<LoadState>('loading');
 
-  const loadStatistics = useCallback(async () => {
+  const loadStatistics = useCallback(async (signal?: AbortSignal) => {
     if (!user) return;
 
     try {
-      const data = await fetchStatistics();
+      const data = await fetchStatistics(signal);
       setStatistics(data);
       setLoadState('ready');
     } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return;
       console.error('Load error question statistics error:', error);
       setLoadState('error');
     }
@@ -590,28 +596,15 @@ export default function ErrorQuestionStatisticsPage() {
   useEffect(() => {
     if (!user) return;
 
-    let ignore = false;
-
-    fetchStatistics()
-      .then((data) => {
-        if (ignore) return;
-        setStatistics(data);
-        setLoadState('ready');
-      })
-      .catch((error) => {
-        if (ignore) return;
-        console.error('Load error question statistics error:', error);
-        setLoadState('error');
-      });
+    const controller = new AbortController();
+    queueMicrotask(() => {
+      loadStatistics(controller.signal);
+    });
 
     return () => {
-      ignore = true;
+      controller.abort();
     };
-  }, [user]);
-
-  if (!isAuthLoading && !user) {
-    return <LoginPrompt />;
-  }
+  }, [loadStatistics, user]);
 
   const totalQuestions = statistics?.basic.totalQuestions ?? 0;
   const totalReviewRecords = statistics?.reviewSummary?.totalReviewRecords ?? 0;
@@ -620,7 +613,7 @@ export default function ErrorQuestionStatisticsPage() {
   const cumulativeCorrectRate = statistics?.reviewSummary?.cumulativeCorrectRate ?? 0;
   const hasData = totalQuestions > 0 || totalReviewRecords > 0;
   
-  const overviewCards = statistics ? [
+  const overviewCards = useMemo(() => statistics ? [
     {
       title: '总错题数',
       value: statistics.basic.totalQuestions,
@@ -666,9 +659,9 @@ export default function ErrorQuestionStatisticsPage() {
       className: 'text-blue-600',
       iconClassName: 'bg-blue-50 text-blue-600',
     },
-  ] : [];
+  ] : [], [cumulativeCorrectRate, masteryRate, statistics, toReviewCount, totalQuestions, totalReviewRecords]);
 
-  const reviewCards = statistics?.reviewSummary ? [
+  const reviewCards = useMemo(() => statistics?.reviewSummary ? [
     {
       title: '总复习次数',
       value: totalReviewRecords,
@@ -714,7 +707,11 @@ export default function ErrorQuestionStatisticsPage() {
       className: 'text-purple-600',
       iconClassName: 'bg-purple-50 text-purple-600',
     },
-  ] : [];
+  ] : [], [statistics, totalReviewRecords]);
+
+  if (!isAuthLoading && !user) {
+    return <LoginPrompt />;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 via-white to-purple-50">
