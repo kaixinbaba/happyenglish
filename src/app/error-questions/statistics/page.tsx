@@ -692,14 +692,18 @@ export default function ErrorQuestionStatisticsPage() {
     <div className="min-h-screen bg-gradient-to-b from-blue-50 via-white to-purple-50">
       <header className="sticky top-0 z-50 border-b bg-white/80 backdrop-blur-sm">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3">
-          <Link href="/error-questions">
-            <Button variant="ghost" size="sm" className="p-2" aria-label="返回错题本">
-              <ArrowLeft className="size-5" />
-            </Button>
-          </Link>
-          <Link href="/error-questions" className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-            错题统计
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link href="/error-questions">
+              <Button variant="ghost" size="sm" className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 transition-colors group" aria-label="返回错题本">
+                <ArrowLeft className="size-5 transition-transform group-hover:-translate-x-1" />
+                <span className="hidden sm:inline-block ml-1">返回错题本</span>
+              </Button>
+            </Link>
+            <div className="hidden h-5 w-px bg-gray-200 sm:block" />
+            <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+              错题统计
+            </span>
+          </div>
           <div className="flex items-center gap-2 sm:gap-3">
             {user ? (
               <>
