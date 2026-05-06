@@ -336,6 +336,73 @@ function Last30DaysReviewTrendChart({ data }: { data: Array<{ date: string; revi
   );
 }
 
+function MasteryDistributionBarChart({ data }: { data: Array<{ range: string; label: string; count: number }> }) {
+  if (!data || data.length === 0 || data.every(d => d.count === 0)) {
+    return (
+      <div className="flex h-60 items-center justify-center text-sm text-gray-400">
+        暂无掌握度分布数据
+      </div>
+    );
+  }
+
+  // 颜色映射：从红色（0-20）到绿色（80-100）
+  const getRangeColor = (range: string) => {
+    switch (range) {
+      case '0-20': return '#ef4444';   // red-500
+      case '20-40': return '#f97316';  // orange-500
+      case '40-60': return '#f59e0b';  // amber-500
+      case '60-80': return '#84cc16';  // lime-500
+      case '80-100': return '#10b981'; // emerald-500
+      default: return '#3b82f6';
+    }
+  };
+
+  return (
+    <div className="h-60 w-full">
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart
+          data={data}
+          margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+        >
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+          <XAxis
+            dataKey="label"
+            tick={{ fontSize: 10, fill: '#6b7280' }}
+            axisLine={false}
+            tickLine={false}
+            dy={10}
+          />
+          <YAxis
+            tick={{ fontSize: 10, fill: '#6b7280' }}
+            axisLine={false}
+            tickLine={false}
+            allowDecimals={false}
+          />
+          <Tooltip
+            cursor={{ fill: 'transparent' }}
+            contentStyle={{
+              backgroundColor: 'rgba(255, 255, 255, 0.9)',
+              borderRadius: '8px',
+              border: 'none',
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+            }}
+            formatter={(value) => [`${value} 题`, '错题数量']}
+          />
+          <Bar
+            dataKey="count"
+            radius={[4, 4, 0, 0]}
+            maxBarSize={40}
+          >
+            {data.map((entry, index) => (
+              <Cell key={`cell-${index}`} fill={getRangeColor(entry.range)} />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
 async function fetchStatistics() {
   const response = await fetch('/api/error-questions/review/statistics');
   if (!response.ok) {
@@ -776,6 +843,23 @@ export default function ErrorQuestionStatisticsPage() {
                       </CardHeader>
                       <CardContent>
                         <Last30DaysReviewTrendChart data={statistics.last30DaysReviewTrend} />
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
+
+                {statistics.masteryDistribution && (
+                  <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+                    <Card className="border-0 bg-white/80 shadow-md lg:col-span-2">
+                      <CardHeader>
+                        <div className="mb-2 flex size-10 items-center justify-center rounded-lg bg-green-50 text-green-600">
+                          <BarChart3 className="size-5" />
+                        </div>
+                        <CardTitle className="text-base text-gray-800">掌握度分布</CardTitle>
+                        <CardDescription>按掌握程度区间的错题数量分布</CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <MasteryDistributionBarChart data={statistics.masteryDistribution} />
                       </CardContent>
                     </Card>
                   </div>
