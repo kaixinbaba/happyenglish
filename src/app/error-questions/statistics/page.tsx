@@ -29,6 +29,7 @@ import {
   LineChart,
   Pie,
   PieChart,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -398,6 +399,68 @@ function MasteryDistributionBarChart({ data }: { data: Array<{ range: string; la
             ))}
           </Bar>
         </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+function ReviewSessionCorrectRateTrendChart({ data }: { data: Array<{ date: string; correctRate: number }> }) {
+  if (!data || data.length === 0) {
+    return (
+      <div className="flex h-60 items-center justify-center text-sm text-gray-400">
+        暂无正确率变化数据
+      </div>
+    );
+  }
+
+  const chartData = data.map(item => ({
+    ...item,
+    formattedDate: item.date.split('-').slice(1).join('-'),
+  }));
+
+  return (
+    <div className="h-60 w-full">
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+          <XAxis
+            dataKey="formattedDate"
+            tick={{ fontSize: 10, fill: '#6b7280' }}
+            axisLine={false}
+            tickLine={false}
+            dy={10}
+          />
+          <YAxis
+            tick={{ fontSize: 10, fill: '#6b7280' }}
+            axisLine={false}
+            tickLine={false}
+            domain={[0, 100]}
+            tickFormatter={(value) => `${value}%`}
+          />
+          <Tooltip
+            contentStyle={{
+              backgroundColor: 'rgba(255, 255, 255, 0.9)',
+              borderRadius: '8px',
+              border: 'none',
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+            }}
+            labelStyle={{ fontSize: '12px', fontWeight: 'bold', color: '#374151', marginBottom: '4px' }}
+            itemStyle={{ fontSize: '12px', color: '#8b5cf6' }}
+            formatter={(value) => [`${value}%`, '平均正确率']}
+          />
+          <ReferenceLine y={80} stroke="#10b981" strokeDasharray="3 3" strokeWidth={1.5}>
+            <span className="text-xs text-green-500 opacity-70">80% 目标线</span>
+          </ReferenceLine>
+          <Line
+            type="monotone"
+            dataKey="correctRate"
+            stroke="#8b5cf6"
+            strokeWidth={3}
+            dot={{ r: 4, fill: '#8b5cf6', strokeWidth: 2, stroke: '#fff' }}
+            activeDot={{ r: 6, strokeWidth: 0 }}
+            animationDuration={1000}
+          />
+        </LineChart>
       </ResponsiveContainer>
     </div>
   );
@@ -860,6 +923,23 @@ export default function ErrorQuestionStatisticsPage() {
                       </CardHeader>
                       <CardContent>
                         <MasteryDistributionBarChart data={statistics.masteryDistribution} />
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
+
+                {statistics.last30DaysReviewTrend && (
+                  <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+                    <Card className="border-0 bg-white/80 shadow-md lg:col-span-2">
+                      <CardHeader>
+                        <div className="mb-2 flex size-10 items-center justify-center rounded-lg bg-purple-50 text-purple-600">
+                          <LineChartIcon className="size-5" />
+                        </div>
+                        <CardTitle className="text-base text-gray-800">平均正确率变化趋势</CardTitle>
+                        <CardDescription>近 30 天复习会话平均正确率变化</CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <ReviewSessionCorrectRateTrendChart data={statistics.last30DaysReviewTrend} />
                       </CardContent>
                     </Card>
                   </div>
