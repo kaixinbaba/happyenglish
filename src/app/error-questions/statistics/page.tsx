@@ -3,7 +3,21 @@
 import { useCallback, useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowLeft, BarChart3, Book, History, LineChart, Loader2, LogOut, PieChart, RefreshCw } from 'lucide-react';
+import {
+  AlertCircle,
+  ArrowLeft,
+  BarChart3,
+  Book,
+  CheckCircle2,
+  History,
+  LineChart,
+  Loader2,
+  LogOut,
+  Percent,
+  PieChart,
+  RefreshCw,
+  Repeat2,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -83,10 +97,14 @@ const sectionCards = [
 function LoadingState() {
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, index) => (
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        {Array.from({ length: 5 }).map((_, index) => (
           <Card key={index} className="border-0 bg-white/80 shadow-md">
             <CardContent className="p-4">
+              <div className="mb-4 flex items-start justify-between">
+                <Skeleton className="h-9 w-9 rounded-lg" />
+                <Skeleton className="h-5 w-14 rounded-full" />
+              </div>
               <Skeleton className="mb-3 h-4 w-20" />
               <Skeleton className="h-8 w-16" />
             </CardContent>
@@ -188,7 +206,57 @@ export default function ErrorQuestionStatisticsPage() {
 
   const totalQuestions = statistics?.basic.totalQuestions ?? 0;
   const totalReviewRecords = statistics?.reviewSummary?.totalReviewRecords ?? 0;
+  const toReviewCount = statistics?.basic.toReviewCount ?? 0;
+  const masteryRate = statistics?.basic.masteryRate ?? 0;
+  const cumulativeCorrectRate = statistics?.reviewSummary?.cumulativeCorrectRate ?? 0;
   const hasData = totalQuestions > 0 || totalReviewRecords > 0;
+  const overviewCards = statistics ? [
+    {
+      title: '总错题数',
+      value: statistics.basic.totalQuestions,
+      helper: '已收录错题',
+      badge: '全部',
+      icon: Book,
+      className: 'text-gray-800',
+      iconClassName: 'bg-slate-50 text-slate-600',
+    },
+    {
+      title: '已掌握',
+      value: statistics.basic.masteredCount,
+      helper: `掌握率 ${masteryRate}%`,
+      badge: `${masteryRate}%`,
+      icon: CheckCircle2,
+      className: 'text-green-600',
+      iconClassName: 'bg-green-50 text-green-600',
+    },
+    {
+      title: '待复习',
+      value: statistics.basic.toReviewCount,
+      helper: totalQuestions > 0 ? `${Math.round((toReviewCount / totalQuestions) * 100)}% 仍需巩固` : '暂无待复习',
+      badge: '复习',
+      icon: AlertCircle,
+      className: 'text-red-500',
+      iconClassName: 'bg-red-50 text-red-500',
+    },
+    {
+      title: '总复习次数',
+      value: totalReviewRecords,
+      helper: `${statistics.reviewSummary?.totalCorrect ?? 0} 次答对`,
+      badge: '累计',
+      icon: Repeat2,
+      className: 'text-amber-600',
+      iconClassName: 'bg-amber-50 text-amber-600',
+    },
+    {
+      title: '累计正确率',
+      value: `${cumulativeCorrectRate}%`,
+      helper: `${statistics.reviewSummary?.totalWrong ?? 0} 次答错`,
+      badge: '正确率',
+      icon: Percent,
+      className: 'text-blue-600',
+      iconClassName: 'bg-blue-50 text-blue-600',
+    },
+  ] : [];
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 via-white to-purple-50">
@@ -308,33 +376,24 @@ export default function ErrorQuestionStatisticsPage() {
 
         {!isAuthLoading && loadState === 'ready' && hasData && statistics && (
           <div className="space-y-6">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <Card className="border-0 bg-white/80 shadow-md">
-                <CardContent className="p-4">
-                  <div className="mb-1 text-sm text-gray-500">总错题数</div>
-                  <div className="text-3xl font-bold text-gray-800">{statistics.basic.totalQuestions}</div>
-                </CardContent>
-              </Card>
-              <Card className="border-0 bg-white/80 shadow-md">
-                <CardContent className="p-4">
-                  <div className="mb-1 text-sm text-gray-500">已掌握</div>
-                  <div className="text-3xl font-bold text-green-600">{statistics.basic.masteredCount}</div>
-                </CardContent>
-              </Card>
-              <Card className="border-0 bg-white/80 shadow-md">
-                <CardContent className="p-4">
-                  <div className="mb-1 text-sm text-gray-500">待复习</div>
-                  <div className="text-3xl font-bold text-red-500">{statistics.basic.toReviewCount}</div>
-                </CardContent>
-              </Card>
-              <Card className="border-0 bg-white/80 shadow-md">
-                <CardContent className="p-4">
-                  <div className="mb-1 text-sm text-gray-500">累计正确率</div>
-                  <div className="text-3xl font-bold text-blue-600">
-                    {statistics.reviewSummary?.cumulativeCorrectRate ?? 0}%
-                  </div>
-                </CardContent>
-              </Card>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+              {overviewCards.map(({ title, value, helper, badge, icon: Icon, className, iconClassName }) => (
+                <Card key={title} className="border-0 bg-white/80 shadow-md transition-shadow hover:shadow-lg">
+                  <CardContent className="p-4">
+                    <div className="mb-4 flex items-start justify-between gap-3">
+                      <div className={`flex size-9 items-center justify-center rounded-lg ${iconClassName}`}>
+                        <Icon className="size-5" />
+                      </div>
+                      <span className="rounded-full bg-white px-2.5 py-1 text-xs font-medium text-gray-500 shadow-sm">
+                        {badge}
+                      </span>
+                    </div>
+                    <div className="mb-1 text-sm text-gray-500">{title}</div>
+                    <div className={`text-3xl font-bold ${className}`}>{value}</div>
+                    <div className="mt-2 text-xs text-gray-400">{helper}</div>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
 
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
