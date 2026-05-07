@@ -19,6 +19,8 @@ export interface GenerateResponse {
   wordMappings: Record<string, string>;
   storyId?: string;
   learnedWords?: string[];
+  skippedWords?: string[];
+  newWords?: string[];
   // New: image generation data so frontend can call /api/generate-images
   storyIdForImages?: string;
   imagePrompts?: string[];
@@ -52,9 +54,10 @@ async function callLLM(messages: { role: 'user' | 'assistant' | 'system'; conten
  * Parse LLM translation response (story + wordMappings JSON)
  * Handles various LLM JSON formatting issues robustly.
  */
-function parseTranslationResponse(rawContent: string): { translation: string; wordMappings: Record<string, string> } {
+function parseTranslationResponse(rawContent: string): { translation: string; wordMappings: Record<string, string>; summaries: Record<string, string> } {
   let translation = '';
   let wordMappings: Record<string, string> = {};
+  let summaries: Record<string, string> = {};
 
   const rawTranslation = rawContent.trim()
     .replace(/^```json\s*/i, '')
@@ -72,6 +75,7 @@ function parseTranslationResponse(rawContent: string): { translation: string; wo
       const obj = JSON.parse(jsonMatch[0]);
       if (obj.translation) translation = obj.translation;
       if (obj.wordMappings) wordMappings = obj.wordMappings;
+      if (obj.summaries) summaries = obj.summaries;
       parsed = true;
     } catch {
       // Attempt 2: Fix common LLM JSON issues (unescaped newlines and quotes inside string values)
@@ -134,6 +138,7 @@ function parseTranslationResponse(rawContent: string): { translation: string; wo
           const obj = JSON.parse(fixed);
           if (obj.translation) translation = obj.translation;
           if (obj.wordMappings) wordMappings = obj.wordMappings;
+          if (obj.summaries) summaries = obj.summaries;
           parsed = true;
         }
       } catch (e) {
@@ -209,7 +214,28 @@ function parseTranslationResponse(rawContent: string): { translation: string; wo
     .replace(/\\"/g, '"')
     .trim();
 
-  return { translation, wordMappings };
+  // Extract summaries if present
+  try {
+    const sKey = '"summaries"';
+    const sStart = rawTranslation.indexOf(sKey);
+    if (sStart !== -1) {
+      const braceStart = rawTranslation.indexOf('{', sStart);
+      if (braceStart !== -1) {
+        let depth = 0;
+        let braceEnd = braceStart;
+        for (let i = braceStart; i < rawTranslation.length; i++) {
+          if (rawTranslation[i] === '{') depth++;
+          if (rawTranslation[i] === '}') depth--;
+          if (depth === 0) { braceEnd = i; break; }
+        }
+        summaries = JSON.parse(rawTranslation.substring(braceStart, braceEnd + 1));
+      }
+    }
+  } catch {
+    // summaries parse failed, non-blocking
+  }
+
+  return { translation, wordMappings, summaries };
 }
 
 async function generateImagePrompts(
@@ -266,15 +292,52 @@ export async function POST(request: NextRequest) {
       learnedWords = existingWords.map(w => w.word);
     }
 
+    const newWords = words.filter(w => !learnedWords.includes(w));
+
+    // Task 2.1: If all words are already learned, skip LLM call
+    if (newWords.length === 0 && userId) {
+      // Increment learnCount for all learned words
+      try {
+        await db
+          .update(storyWords)
+          .set({
+            lastLearnedAt: new Date().toISOString(),
+            learnCount: sql`${storyWords.learnCount} + 1`,
+          })
+          .where(and(eq(storyWords.userId, userId), inArray(storyWords.word, learnedWords)));
+      } catch (dbError) {
+        console.error('Database update error:', dbError);
+      }
+
+      return NextResponse.json({
+        story: '',
+        translation: '',
+        images: [],
+        words,
+        wordMappings: {},
+        learnedWords,
+        skippedWords: learnedWords,
+        newWords: [],
+        storyIdForImages: '',
+        imagePrompts: [],
+        imageCount: 0,
+        ageGroup,
+        wordCount: 0,
+      } as GenerateResponse);
+    }
+
     // Run story, translation, and image prompts in PARALLEL to save time
     const ageGroupDesc = ageGroupDescriptions[ageGroup] || 'children';
+
+    // Task 2.1: Only pass newWords to LLM story prompt
+    const storyPromptWords = newWords.length > 0 ? newWords : words;
 
     const storyPromise = callLLM([{
       role: 'user',
       content: `You are a children's story writer. Write a short English story for ${ageGroupDesc}.
 
 IMPORTANT REQUIREMENTS:
-1. The story MUST use ALL of these target words: ${words.join(', ')}
+1. The story MUST use ALL of these target words: ${storyPromptWords.join(', ')}
 2. The story should be around ${wordCount} words
 3. All other words should be simple and appropriate for the age group
 4. The target words should be the ONLY new/difficult vocabulary in the story
@@ -282,19 +345,24 @@ IMPORTANT REQUIREMENTS:
 6. The story should have a clear beginning, middle, and end
 7. DO NOT use markdown formatting like # or ** or *. Just write plain text with proper paragraphs.
 
-Target words to use: ${words.join(', ')}
+Target words to use: ${storyPromptWords.join(', ')}
 
 Write the story now (plain text only, no markdown):`
     }], 0.8);
 
     const translationPromise = (async () => {
-      // We need the story text first, so we await it then call translation
       const storyContent = await storyPromise;
       const cleanedStory = storyContent
         .replace(/^#+\s*/gm, '')
         .replace(/\*\*/g, '')
         .replace(/\*/g, '')
         .trim();
+
+      // Task 2.2: Add summaries to translation prompt
+      const summariesInstruction = newWords.length > 0
+        ? `
+7. "summaries": an object mapping each new target word (${newWords.join(', ')}) to a brief Chinese summary paragraph explaining its meaning, usage, and context within this story`
+        : '';
 
       const translationContent = await callLLM([{
         role: 'user',
@@ -307,7 +375,11 @@ You must output in this exact JSON format:
   "wordMappings": {
     "word1": "中文翻译1",
     "word2": "中文翻译2"
-  }
+  }${newWords.length > 0 ? `,
+  "summaries": {
+    "word1": "该单词在故事中的释义和用法概括（中文段落）",
+    "word2": "该单词在故事中的释义和用法概括（中文段落）"
+  }` : ''}
 }
 
 IMPORTANT:
@@ -316,7 +388,7 @@ IMPORTANT:
 3. Separate paragraphs with \\n\\n (escaped newlines), NOT actual newlines inside the JSON string
 4. Make sure all special JSON characters are properly escaped
 5. wordMappings should map each English target word to its Chinese translation used in the story
-6. Target English words: ${words.join(', ')}
+6. Target English words: ${storyPromptWords.join(', ')}${summariesInstruction}
 
 English story:
 ${cleanedStory}`
@@ -332,7 +404,7 @@ ${cleanedStory}`
         .replace(/\*\*/g, '')
         .replace(/\*/g, '')
         .trim();
-      return generateImagePrompts(cleanedStory, words, imageCount);
+      return generateImagePrompts(cleanedStory, newWords, imageCount);
     })();
 
     // Wait for story first
@@ -345,7 +417,7 @@ ${cleanedStory}`
       .trim();
 
     // Wait for translation and image prompts in parallel
-    const [{ translation, wordMappings }, imagePrompts] = await Promise.all([
+    const [{ translation, wordMappings, summaries }, imagePrompts] = await Promise.all([
       translationPromise,
       imagePromisesPromise,
     ]);
@@ -370,26 +442,45 @@ ${cleanedStory}`
         if (storyRecord.length > 0) {
           storyId = storyRecord[0].id;
 
-          // Update word learning records
-          for (const word of words) {
-            const wordTranslation = wordMappings[word] || null;
-
-            if (learnedWords.includes(word)) {
-              await db
-                .update(storyWords)
-                .set({
-                  lastLearnedAt: new Date().toISOString(),
-                  learnCount: sql`${storyWords.learnCount} + 1`,
-                  translation: wordTranslation,
-                })
-                .where(and(eq(storyWords.userId, userId), eq(storyWords.word, word)));
-            } else {
-              await db.insert(storyWords).values({
-                userId,
-                word,
-                translation: wordTranslation,
-              });
+          // Task 2.3: Extract sentence_hint for each newWord
+          const sentenceHints: Record<string, string> = {};
+          for (const word of newWords) {
+            const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const sentenceRegex = new RegExp(
+              `[^.!?]*\\b${escaped}\\b[^.!?]*[.!?]`,
+              'i'
+            );
+            const match = story.match(sentenceRegex);
+            if (match) {
+              sentenceHints[word] = match[0].trim();
             }
+          }
+
+          // Save new words with story_id, summary, sentence_hint
+          for (const word of newWords) {
+            const wordTranslation = wordMappings[word] || null;
+            const summary = summaries[word] || null;
+            const sentenceHint = sentenceHints[word] || null;
+
+            await db.insert(storyWords).values({
+              userId,
+              word,
+              translation: wordTranslation,
+              storyId,
+              summary,
+              sentenceHint,
+            });
+          }
+
+          // Update learned words: only increment learn_count + last_learned_at
+          for (const word of learnedWords) {
+            await db
+              .update(storyWords)
+              .set({
+                lastLearnedAt: new Date().toISOString(),
+                learnCount: sql`${storyWords.learnCount} + 1`,
+              })
+              .where(and(eq(storyWords.userId, userId), eq(storyWords.word, word)));
           }
         }
       } catch (dbError) {
@@ -405,6 +496,8 @@ ${cleanedStory}`
       wordMappings,
       storyId,
       learnedWords,
+      skippedWords: learnedWords,
+      newWords,
       // Pass along data for async image generation
       storyIdForImages: storyId || crypto.randomUUID(),
       imagePrompts,
