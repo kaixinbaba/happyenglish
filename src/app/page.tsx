@@ -13,7 +13,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Sparkles, History, LogOut, Book } from 'lucide-react';
+import { Loader2, Sparkles, History, LogOut, Book, BookOpen } from 'lucide-react';
 import ResultPage from '@/components/ResultPage';
 import { useAuth, getUserDisplayName } from '@/contexts/AuthContext';
 
@@ -210,6 +210,12 @@ export default function Home() {
                     错题本
                   </Button>
                 </Link>
+                <Link href="/words/statistics">
+                  <Button variant="ghost" size="sm" className="flex items-center gap-2">
+                    <BookOpen className="w-4 h-4" />
+                    生词本
+                  </Button>
+                </Link>
                 <div className="flex items-center gap-2">
                   {user.avatar_url ? (
                     <img 
@@ -242,9 +248,15 @@ export default function Home() {
                     错题本
                   </Button>
                 </Link>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
+                <Link href="/words/statistics">
+                  <Button variant="ghost" size="sm" className="flex items-center gap-2">
+                    <BookOpen className="w-4 h-4" />
+                    生词本
+                  </Button>
+                </Link>
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={handleFeishuLogin}
                   className="flex items-center gap-2"
                 >

@@ -162,11 +162,17 @@ export default function HistoryPage() {
           <div className="flex items-center gap-3">
             {user ? (
               <>
+                <Link href="/words/statistics">
+                  <Button variant="ghost" size="sm" className="flex items-center gap-2">
+                    <BookOpen className="w-4 h-4" />
+                    生词本
+                  </Button>
+                </Link>
                 <div className="flex items-center gap-2">
                   {user.avatar_url ? (
-                    <img 
-                      src={user.avatar_url} 
-                      alt={user.nickname} 
+                    <img
+                      src={user.avatar_url}
+                      alt={user.nickname}
                       className="w-8 h-8 rounded-full object-cover"
                     />
                   ) : (
@@ -181,12 +187,20 @@ export default function HistoryPage() {
                 </Button>
               </>
             ) : (
-              <Button variant="outline" size="sm" onClick={handleFeishuLogin} className="flex items-center gap-2">
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12.5 2C7.25 2 3 6.25 3 11.5c0 2.83 1.24 5.37 3.21 7.12l.01-.01c.93.85 2.08 1.47 3.35 1.81.67.18 1.37.28 2.09.28.72 0 1.42-.1 2.09-.28 1.27-.34 2.42-.96 3.35-1.81l.01.01C19.76 16.87 21 14.33 21 11.5 21 6.25 16.75 2 12.5 2zm0 16c-3.59 0-6.5-2.91-6.5-6.5S8.91 5 12.5 5s6.5 2.91 6.5 6.5-2.91 6.5-6.5 6.5z"/>
-                </svg>
-                飞书登录
-              </Button>
+              <>
+                <Link href="/words/statistics">
+                  <Button variant="ghost" size="sm" className="flex items-center gap-2">
+                    <BookOpen className="w-4 h-4" />
+                    生词本
+                  </Button>
+                </Link>
+                <Button variant="outline" size="sm" onClick={handleFeishuLogin} className="flex items-center gap-2">
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12.5 2C7.25 2 3 6.25 3 11.5c0 2.83 1.24 5.37 3.21 7.12l.01-.01c.93.85 2.08 1.47 3.35 1.81.67.18 1.37.28 2.09.28.72 0 1.42-.1 2.09-.28 1.27-.34 2.42-.96 3.35-1.81l.01.01C19.76 16.87 21 14.33 21 11.5 21 6.25 16.75 2 12.5 2zm0 16c-3.59 0-6.5-2.91-6.5-6.5S8.91 5 12.5 5s6.5 2.91 6.5 6.5-2.91 6.5-6.5 6.5z"/>
+                  </svg>
+                  飞书登录
+                </Button>
+              </>
             )}
           </div>
         </div>
