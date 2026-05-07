@@ -89,11 +89,15 @@ export const storyWords = pgTable(
 		errorCount: integer("error_count").notNull().default(0),
 		masteryLevel: integer("mastery_level").notNull().default(50), // 0-100，数值越高掌握越好
 		lastErrorAt: timestamp("last_error_at", { withTimezone: true, mode: 'string' }),
+		storyId: varchar("story_id", { length: 36 }).references(() => stories.id, { onDelete: 'set null' }),
+		summary: text("summary"),
+		sentenceHint: text("sentence_hint"),
 	},
 	(table) => [
 		index("story_words_user_id_idx").on(table.userId),
 		index("story_words_word_idx").on(table.word),
 		index("story_words_user_word_idx").on(table.userId, table.word),
+		index("story_words_story_id_idx").on(table.storyId),
 	]
 );
 
